@@ -111,7 +111,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
         ip_spinner.setOnItemSelectedListener(this);
 	}
 
-
+	
 
 	public String GetTextTX(){
 		EditText mEdit = (EditText)findViewById(R.id.txt_TX);
@@ -145,7 +145,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 
 	@Override
 	public void onNothingSelected(AdapterView<?> arg0) {
-		// TODO Auto-generated method stub
+		//// TODO Auto-generated method stub
 		
 	}
 }
