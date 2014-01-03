@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">adHockTest</string>
+    <string name="action_settings">Settings</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="enter_your_message_">Enter your message..</string>
+    <string name="send">Send</string>
+    <string name="exit">Exit</string>
+    <string-array name="ip_array">
+        <item>10.192.2.0</item>
+        <item>10.192.2.22</item>
+        <item>10.192.2.96</item>
+    </string-array>
+</resources>

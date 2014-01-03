@@ -1,0 +1,85 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/wooden_bg"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    tools:context=".MainActivity" >
+
+    <TextView
+        android:id="@+id/txt_RX"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/txt_TX"
+        android:layout_below="@+id/b_send"
+        android:layout_marginTop="60dp" />
+
+    <Button
+        android:id="@+id/b_send"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBottom="@+id/txt_TX"
+        android:layout_alignTop="@+id/txt_TX"
+        android:layout_toRightOf="@+id/txt_TX"
+        android:text="Send" />
+
+    <EditText
+        android:id="@+id/txt_TX"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_below="@+id/tv_ip"
+        android:layout_marginTop="29dp"
+        android:ems="10"
+        android:text="@string/enter_your_message_" >
+
+        <requestFocus />
+    </EditText>
+
+    <TextView
+        android:id="@+id/textView1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/txt_RX"
+        android:layout_below="@+id/txt_TX"
+        android:layout_marginTop="23dp"
+        android:text="Received message:"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <Button
+        android:id="@+id/b_exit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignRight="@+id/b_send"
+        android:layout_marginBottom="17dp"
+        android:text="@string/exit" />
+
+    <Spinner
+        android:id="@+id/spinner_select_ip"
+        style="@style/AppBaseTheme"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/txt_RX"
+        android:layout_toRightOf="@+id/tv_ip" />
+
+    <TextView
+        android:id="@+id/tv_rem_ip"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/tv_ip"
+        android:layout_below="@+id/tv_ip"
+        android:text="XX.XX.XX.XX" />
+
+    <TextView
+        android:id="@+id/tv_ip"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/txt_TX"
+        android:layout_alignParentTop="true"
+        android:text="XX.XX.XX.XX" />
+
+</RelativeLayout>
