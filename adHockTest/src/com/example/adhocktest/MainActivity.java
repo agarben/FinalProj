@@ -2,6 +2,8 @@ package com.example.adhocktest;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 
 import android.net.wifi.WifiManager;
@@ -24,6 +26,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	AdHocEnabler AHE;
 
 	WifiManager wifi;
+	private String subnet_prefix; 
 	private String my_ip;
 	
 	//////
@@ -36,15 +39,21 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	String[] ip_array = { "192.168.2.0","192.168.2.255" , "192.168.2.207", "192.168.2.22","192.168.2.96" };
 	private String target_ip;
 	
+//	
+//	List<String> zoom = new ArrayList<>();
+//	zoom.add("String 1");
+//	zoom.add("String 2");
+//	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
-        
+
 		super.onCreate(savedInstanceState);
+		
 		setContentView(R.layout.activity_main);	 
 		/////// determine self ip
 		wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);
-		
-		my_ip = "192.168.2."+Integer.toString(Math.abs(wifi.getConnectionInfo().getMacAddress().hashCode()%255)); 
+		subnet_prefix = "192.168.2.";
+		my_ip = subnet_prefix+Integer.toString(Math.abs(wifi.getConnectionInfo().getMacAddress().hashCode()%255)); 
 		
 		int duration = Toast.LENGTH_SHORT;
 		txt_RX = (TextView)findViewById(R.id.txt_RX);
@@ -62,7 +71,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		// Start broadcasting my ip 
 		//////////////////////////
 		Routing sendBCAST = new Routing(my_ip);
-		sendBCAST.broadcastIP(false);
+		sendBCAST.broadcastIP(true);
 		
 		toast1.show();
 		tv_ip.setText("Local ip: "+my_ip);

@@ -21,13 +21,17 @@ public class Routing{
 	private WifiManager mWifi;
 	private String BROADCAST_IP = "192.168.2.255";
 	private InetAddress InetBroadcastAddress = null;
-	private long time_between_ip_broadcasts = 10000; //ms
-	private boolean use_ndk = false;
+	private long time_between_ip_broadcasts = 5000; //ms
+	private boolean use_ndk = true;
+	private SenderUDP senderUDP;
+	
+
 	
 	public Routing(String ip_to_assign)
 	{ 
 		this.my_ip = ip_to_assign;
-
+		senderUDP = new SenderUDP(BROADCAST_IP,"HELLO_FROM<"+my_ip+">");
+		
 		if (!use_ndk) {
 			try {
 				this.InetBroadcastAddress = InetAddress.getByName(BROADCAST_IP);
@@ -86,7 +90,16 @@ public class Routing{
 	        				Log.i("GALPA","InterruptedException while broadcasting IP thread");
 	        		}
         		} else {
-        			Log.i("GALPA","Implement ndk broadcast");
+	        		try {
+						Thread.sleep(time_between_ip_broadcasts);
+    					senderUDP.sendMsg();
+					} catch (InterruptedException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+    				catch (IOException e){
+    					e.printStackTrace();
+    				}
         		}
         	}
 

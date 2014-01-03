@@ -35,7 +35,7 @@
 
 jstring
 Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
-                                                  jobject thiz, jstring ip,jint port, jstring message)
+                                                  jobject thiz, jstring ip,jint port, jstring message, jint is_broadcast)
 {
 	int sock_fd;
 
@@ -48,6 +48,17 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
 	if (( sock_fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
 		return (*env)->NewStringUTF(env,"Cannot create socket");
 	}
+	/////////////////
+	// set socket options
+	/////////////////
+	int ret=setsockopt(sock_fd, SOL_SOCKET, SO_BROADCAST, &is_broadcast, sizeof(is_broadcast));
+	if (ret) {
+		return (*env)->NewStringUTF(env,"Failed to set setsockopt()");
+		close(sock_fd);
+	}
+
+
+
 	////////////////
 	/// send
 	////////////////
@@ -112,3 +123,4 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	    close(sockfd);
 
 }
+

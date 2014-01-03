@@ -12,7 +12,7 @@ import android.widget.Toast;
 
 public class SenderUDP {
 
-	public native String  SendUdpJNI( String ip, int port, String message);		
+	public native String  SendUdpJNI( String ip, int port, String message, int is_broadcast);		
     static {
         System.loadLibrary("adhoc-jni");
     }
@@ -32,16 +32,19 @@ public class SenderUDP {
 	{
 		this.ip = new_ip;
 		this.msg = new_msg;
-	
 	}
 	
 	public String sendMsg() throws IOException // TODO: better understand the try throw mechanism
 	{
 		// TODO: check data length
-		
+		String str = "";
 		if (use_ndk) {
 			Log.i("GALPA","NDK: sending to IPAddress "+ip);
-			String str = SendUdpJNI(ip,receiverPort,msg);
+			if (this.ip == "192.168.2.255") {
+				str = SendUdpJNI(ip,receiverPort,msg,1);
+			} else {
+				str = SendUdpJNI(ip,receiverPort,msg,0);
+			}
 	 		Log.i("GALPA","NDK:SendUdpJNI returned: "+str);
 		} else {
 			InetAddress IPAddress = InetAddress.getByName(this.ip);
@@ -58,6 +61,13 @@ public class SenderUDP {
 		}
 			
 		return msg.getBytes().toString();
+	}
+	
+	public void setTargetIp(String new_ip) {
+		this.ip = new_ip;
+	}
+	public void setMessage(String new_msg) {
+		this.msg = new_msg;
 	}
 	
 }

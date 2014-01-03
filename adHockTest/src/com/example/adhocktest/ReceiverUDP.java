@@ -22,7 +22,11 @@ public class ReceiverUDP extends Thread{
 	static byte[] data;
 	private boolean use_ndk = true;
 	
+	//////////
+	// Interaction with mainactiv
+	//////////
 	private TextView tx_RX;
+	private String[] ip_arr;
 	private Handler handler = new Handler();
 	
 	public ReceiverUDP(TextView tx_RX){
@@ -56,11 +60,14 @@ public class ReceiverUDP extends Thread{
 			try {
 				
 				if (use_ndk) {
-					
 					final String rx_str = new String(RecvUdpJNI());
 					handler.post(new Runnable(){
 			            public void run() {
-			            	tx_RX.setText( rx_str );
+			            	if (rx_str.startsWith("HELLO_BCAST") == true) {
+			            		tx_RX.setText( rx_str );
+			            	} else {
+			            		tx_RX.setText( rx_str ); //TODO
+			            	}
 			            }});
 				} else {
 					Log.i("GALPA","JAVA: Listening to socket");
