@@ -17,7 +17,7 @@
 /*
 #include <string.h>
 #include <jni.h>
-
+#include <android/log.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <jni.h>
+#include <android/log.h>
 
 jstring
 Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
@@ -48,6 +49,11 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
 	if (( sock_fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
 		return (*env)->NewStringUTF(env,"Cannot create socket");
 	}
+
+
+//	__android_log_write(ANDROID_LOG_INFO, "GALPA",  "sock_fd values");
+	__android_log_print(ANDROID_LOG_INFO, "GALPA",  "sock_fd values = %d", sock_fd);
+
 	/////////////////
 	// set socket options
 	/////////////////
@@ -56,7 +62,6 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
 		return (*env)->NewStringUTF(env,"Failed to set setsockopt()");
 		close(sock_fd);
 	}
-
 
 
 	////////////////
@@ -69,6 +74,7 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
 	servaddr.sin_port = htons(port);
 
 	if ((inet_aton(_ip,&servaddr.sin_addr)) == 0) {
+		close(sock_fd);
 		return (*env)->NewStringUTF(env,"Cannot decode IP address");
 	}
 	int retval = sendto(sock_fd, send_buf, strlen(send_buf), 0, (struct sockaddr*)&servaddr, sizeof(servaddr));
@@ -80,9 +86,9 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
 	} else {
 		sprintf(str, "sendto() Success (retval=%d messge='%s' size=%d ip=%s.", retval,send_buf,strlen(send_buf),_ip);
 	}
+	close(sock_fd);
 	return (*env)->NewStringUTF(env,str);
 
-	close(sock_fd);
 }
 
 jstring
