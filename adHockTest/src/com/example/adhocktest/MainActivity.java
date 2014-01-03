@@ -20,22 +20,20 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends Activity implements OnItemSelectedListener {
-
-
-
 	String essid="BENGAL";
 	AdHocEnabler AHE;
 
-	private WifiManager wifi;
+	WifiManager wifi;
 	private String my_ip;
-	private String local_ip;
+	
+	//////
+	// textViews
 	private TextView txt_RX;
 	private TextView tv_ip;
 	private TextView tv_rem_ip;
-	private boolean ip_is_set = false;
 
 	Spinner ip_spinner;
-	String[] ip_array = { "192.168.2.0","192.168.2.255", "192.168.2.22","192.168.2.96" };
+	String[] ip_array = { "192.168.2.0","192.168.2.255" , "192.168.2.207", "192.168.2.22","192.168.2.96" };
 	private String target_ip;
 	
 	@Override
@@ -44,8 +42,9 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);	 
 		/////// determine self ip
-		WifiManager wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);
-		my_ip = "192.168.2."+Integer.toString(Math.abs(wifi.getConnectionInfo().getMacAddress().hashCode()%255));      
+		wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+		
+		my_ip = "192.168.2."+Integer.toString(Math.abs(wifi.getConnectionInfo().getMacAddress().hashCode()%255)); 
 		
 		int duration = Toast.LENGTH_SHORT;
 		txt_RX = (TextView)findViewById(R.id.txt_RX);
