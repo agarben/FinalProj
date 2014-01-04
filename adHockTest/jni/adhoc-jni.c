@@ -34,6 +34,87 @@
 #include <jni.h>
 #include <android/log.h>
 
+
+/////
+//DEFINE MEMBER IN NETWORK
+/////
+typedef enum {DIRECT_NEIGHBOUR, NEIGHBOUR_OF_NEIGHBOUR} node_closeness;
+////////
+//GLOBALS
+////////
+
+////SINGLE NODE
+typedef struct MemberInNetwork {
+	node_closeness cur_node_closeness;
+	char* node_ip;
+	//need to add more parameters such as last received etc
+} MemberInNetwork;
+
+////NETWORK MAP
+typedef struct NetworkMap {
+	int num_of_nodes;
+	MemberInNetwork* FirstMember;
+} NetworkMap;
+
+NetworkMap* MyNetworkMap;
+
+
+
+/*
+ * InitializeMap.
+ */
+jint
+Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1,
+        jobject thiz){
+
+	MyNetworkMap = (NetworkMap*)malloc(sizeof(NetworkMap));
+	if (MyNetworkMap==NULL)
+		return -1;
+	MyNetworkMap->num_of_nodes=0;
+	MyNetworkMap->FirstMember=NULL;
+	return 0;
+
+}
+
+/*
+ * UpdateNetworkMap : receive node_ip, node_type - add the data to the network map
+ */
+//int UpdateNetworkMap(char* node_ip, node_closeness node_type){
+//
+//
+//
+//
+//
+//}
+
+/*
+ * CheckNodeExistence - checks if node exists in the network map, if it doesn't - adds it
+ */
+//TODO: Need to check closeness of the node and perhaps change it, need to add DEBUG method.
+//int CheckNodeExistence(char* buf){
+//
+//	int retVal = -1;
+//
+//	//extract node-ip
+//
+//
+//	//extract node
+//
+//	//check if exists in the network map
+//
+//
+//	//if doesn't exist - add it
+//	retVal = UpdateNetworkMap(node_ip,node_type);
+//	if (retVal == -1)
+//		return -1;
+//	return 0;
+//
+//}
+
+
+
+
+
 jstring
 Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
                                                   jobject thiz, jstring ip,jint port, jstring message, jint is_broadcast)
@@ -97,6 +178,8 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 {
 	int PORT = 8888;
 	int BUFLEN = 512;
+	int retVal=-1;
+
 
 	struct sockaddr_in my_addr, cli_addr;
 	int sockfd, i;
@@ -121,17 +204,50 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	if (bind(sockfd, (struct sockaddr* ) &my_addr, sizeof(my_addr))==-1) {
 		free(buf);
 		return (*env1)->NewStringUTF(env1, "bind");
+
 	}
 
-	while(1)
-	{
-		if (recvfrom(sockfd, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen)==-1) {
-			free(buf);
-			return (*env1)->NewStringUTF(env1, "errRecv");
-		}
-		close(sockfd);
-		return (*env1)->NewStringUTF(env1, buf); // check if this is a memory leak
-	}
+
+
+	//try to receive
+	if (recvfrom(sockfd, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen)==-1)
+		return (*env1)->NewStringUTF(env1, "errRecv");
+
+	__android_log_print(ANDROID_LOG_INFO, "GALPA",  "ADDRESS = %s", inet_ntoa(cli_addr.sin_addr));
+
+	//if received successfully , close socket
+	close(sockfd);
+
+	return (*env1)->NewStringUTF(env1, buf);
+
 }
+
+
+
+int w00t(int x1,int x2){
+
+	return x1+x2;
+}
+
+
+
+jstring
+Java_com_example_adhocktest_Routing_CheckC(JNIEnv* env1,
+        jobject thiz){
+
+
+	int x;
+	x=1;
+
+	__android_log_print(ANDROID_LOG_INFO, "GALPA",  "x = 1 is now = %d", x);
+
+	x = w00t(2,3);
+
+	__android_log_print(ANDROID_LOG_INFO, "GALPA",  "x = w00t(2,3) is now = %d", x);
+
+	return (*env1)->NewStringUTF(env1, "END");
+
+}
+
 
 

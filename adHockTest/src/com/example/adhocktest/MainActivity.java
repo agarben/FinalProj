@@ -68,11 +68,11 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		/////////////////////////
 		AHE = new AdHocEnabler("BENGAL", my_ip);
 		AHE.ActivateAdHoc();
+		
 		/////////////////////////
 		// Layout items
 		/////////////////////////
 		initLayoutPointers();
-	
 		b_send.setOnClickListener(new View.OnClickListener() {
 
 			@Override

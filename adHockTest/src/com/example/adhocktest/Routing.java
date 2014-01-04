@@ -40,7 +40,8 @@ public class Routing{
 		this.my_ip = ip_to_assign;
 		senderUDP = new SenderUDP(BROADCAST_IP,"HELLO_FROM<"+my_ip+">");
 		
-		if (!use_ndk) {   // TODO: Delete this - deprecated
+		if (!use_ndk) {
+
 			try {
 				this.InetBroadcastAddress = InetAddress.getByName(BROADCAST_IP);
 				Log.i("GALPA","initialized broadcast ip InetAddress");
