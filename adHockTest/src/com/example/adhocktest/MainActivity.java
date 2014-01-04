@@ -6,6 +6,7 @@ import java.util.List;
 
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
@@ -37,6 +38,8 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	private Toast toast_my_ip;
 	private Toast toast_sending;
 	
+
+	private Handler handler = new Handler(); // TODO: dont forget to delete
 	
 	////// spinner params
 	Spinner ip_spinner;
@@ -99,18 +102,12 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 
 		});
 
-		// ////////////////////////
-		// Start broadcasting my ip
-		// ////////////////////////
-		routing = new Routing(my_ip, this);
-		
 		//////////////////////////
 		// Start listeners and broadcast threads
 		//////////////////////////
+		routing = new Routing(my_ip, this);
 		routing.broadcastIP(true);
 		StartListening();
-
-
 	}
 
 	///////////////////
@@ -163,6 +160,21 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 				adapter.notifyDataSetChanged();
 			}
 		}
+	}
+	
+	public void adapterRem(String str_to_rem) {
+		str_to_rem = str_to_rem.replace("HELLO_FROM<", "");
+		str_to_rem = str_to_rem.replace(">", "");
+
+		final String processed_str = str_to_rem;
+		handler.post(new Runnable(){
+			public void run() {
+				adapter.remove(processed_str);
+				adapter.notifyDataSetChanged();
+			}
+		});
+		//ip_array.remove(str_to_rem);
+		Log.i("Routing","Need to remove "+str_to_rem);
 	}
 	
 	public void initLayoutPointers(){

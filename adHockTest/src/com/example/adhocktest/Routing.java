@@ -7,6 +7,10 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import android.net.wifi.WifiManager;
 import android.util.Log;
@@ -31,12 +35,14 @@ public class Routing{
 	private SenderUDP senderUDP;
 	
 	MainActivity _mActivity;
-	
+
+	private Map<String,Integer> _ip_time_map;
 
 	
 	public Routing(String ip_to_assign, MainActivity mActivity)
 	{ 
 		_mActivity = mActivity;
+		_ip_time_map = new HashMap<String, Integer>();
 		this.my_ip = ip_to_assign;
 		senderUDP = new SenderUDP(BROADCAST_IP,"HELLO_FROM<"+my_ip+">");
 		InitializeMap();
@@ -83,7 +89,7 @@ public class Routing{
              
         	while(true)
         	{
-        		
+        		updateIpCounter();
         		
         		if (use_ndk) {
 	        		try {
@@ -101,7 +107,6 @@ public class Routing{
         			try{
 						Log.i("GALPA", "JAVA:Broadcasting my IP " + my_ip);
 						broadcast_ip_socket.send(broadcast_ip_packet);
-
 						Log.i("GALPA","device with IP " + my_ip + " waits for " +time_between_ip_broadcasts/1000+" seconds before broadcasting again");
 	        		Thread.sleep(time_between_ip_broadcasts);
 	        		}	catch (IOException e){
@@ -118,9 +123,26 @@ public class Routing{
 	   });
 	
 	void processHello(String rx_msg) {
+		_ip_time_map.put(rx_msg,5);
 		_mActivity.adapterAdd(rx_msg);
 	}
+
+
+	void updateIpCounter() {
+	    Log.i("Routing","UpdateIpCounter()");
+		for (Map.Entry<String, Integer> entry : _ip_time_map.entrySet())
+		{
+			String key = entry.getKey();
+			if (entry.getValue() == 0) {
+				_mActivity.adapterRem(key);
+			    Log.i("Routing","Removed from map :  Key= "+entry.getKey());
+				_ip_time_map.remove(entry.getKey());
+			} else {
+			    Log.i("Routing","Before :  Key= "+entry.getKey()+" Value= "+ entry.getValue());
+			    _ip_time_map.put(entry.getKey() , entry.getValue()-1 );
+			    Log.i("Routing","After :  Key= "+entry.getKey()+" Value= "+ entry.getValue());
+			}
+		}
+	}
 }
-
-
  
