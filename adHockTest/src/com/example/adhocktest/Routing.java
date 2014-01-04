@@ -83,10 +83,10 @@ public class Routing{
         	{
         		if (!use_ndk) {
 	        		try{
-	        		Log.i("GALPA","JAVA:Broadcasting my IP " +my_ip);		
-	        		broadcast_ip_socket.send(broadcast_ip_packet);
-	        		
-	        		Log.i("GALPA","device with IP " + my_ip + " waits for " +time_between_ip_broadcasts/1000+" seconds before broadcasting again");
+						Log.i("GALPA", "JAVA:Broadcasting my IP " + my_ip);
+						broadcast_ip_socket.send(broadcast_ip_packet);
+
+						Log.i("GALPA","device with IP " + my_ip + " waits for " +time_between_ip_broadcasts/1000+" seconds before broadcasting again");
 	        		Thread.sleep(time_between_ip_broadcasts);
 	        		}	catch (IOException e){
 	        				e.printStackTrace();

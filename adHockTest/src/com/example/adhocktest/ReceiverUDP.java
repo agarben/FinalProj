@@ -7,6 +7,7 @@ import java.net.SocketException;
 
 import android.os.Handler;
 import android.util.Log;
+import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
 public class ReceiverUDP extends Thread{
@@ -28,16 +29,20 @@ public class ReceiverUDP extends Thread{
 	private TextView tx_RX;
 	private String[] ip_arr;
 	private Handler handler = new Handler();
+	ArrayAdapter<String> adapter;
 	
-	public ReceiverUDP(TextView tx_RX){
+	MainActivity _mActivity; 
+	
+	public ReceiverUDP(TextView tx_RX, MainActivity mActivity){
 
 		this.tx_RX = tx_RX;
+		_mActivity = mActivity;
 	}
 	
 	public void run(){
 		byte[] buffer = new byte[8000];
-		
 		// open socket
+		
 		try {
 			if (!use_ndk) {
 				Log.i("GALPA","JAVA: Opening socket");
@@ -66,7 +71,7 @@ public class ReceiverUDP extends Thread{
 			            	if (rx_str.startsWith("HELLO_BCAST") == true) {
 			            		tx_RX.setText( rx_str );
 			            	} else {
-			            		tx_RX.setText( rx_str ); //TODO
+			            		_mActivity.adapterAdd( rx_str );
 			            	}
 			            }});
 				} else {
