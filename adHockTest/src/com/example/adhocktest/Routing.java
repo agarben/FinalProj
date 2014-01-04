@@ -13,6 +13,12 @@ import android.net.wifi.WifiManager;
 import android.util.Log;
 
 public class Routing{
+	
+	
+	public native String CheckC( );	
+    static {
+        System.loadLibrary("adhoc-jni");
+    }
 
 	private int PORT = 8888;
 	private String my_ip;

@@ -18,6 +18,6 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE    := adhoc-jni
 LOCAL_SRC_FILES := adhoc-jni.c
-LOCAL_LDLIBS := -llog
+LOCAL_LDLIBS	:= -llog
 
 include $(BUILD_SHARED_LIBRARY)

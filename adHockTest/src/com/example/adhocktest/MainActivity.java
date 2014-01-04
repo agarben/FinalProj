@@ -10,6 +10,7 @@ import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.app.Activity;
 import android.content.Context;
+import android.util.Log;
 import android.view.Menu;
 import android.view.View;
 import android.widget.AdapterView;
@@ -50,8 +51,15 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		super.onCreate(savedInstanceState);
 		
 		setContentView(R.layout.activity_main);	 
+		///////
+		// pre-startup actions
+		///////
+		if (!preStartupConfiguration()){
+			Log.i("GALPA","STARTUP FAILED TO RESET WIFI");				
+		}
+			
 		/////// determine self ip
-		wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+		//wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);	
 		subnet_prefix = "192.168.2.";
 		my_ip = subnet_prefix+Integer.toString(Math.abs(wifi.getConnectionInfo().getMacAddress().hashCode()%255)); 
 		
@@ -125,6 +133,38 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	public void StartListening(){
 		ReceiverUDP receiverUDP = new ReceiverUDP(this.txt_RX);
 		receiverUDP.start();
+	}
+	
+	public boolean preStartupConfiguration(){
+		
+		boolean retVal;
+		
+		wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+		Log.i("GALPA","preStartupConfiguration: Try to enable wifi");	
+		retVal = wifi.setWifiEnabled(true);
+		if (!retVal){
+			Log.i("GALPA","preStartupConfiguration: Failed to enable wifi");			
+			return retVal;
+		}
+		try {
+		    Thread.sleep(2000);
+		} catch(InterruptedException ex) {
+		    Thread.currentThread().interrupt();
+		}
+		Log.i("GALPA","preStartupConfiguration: Try to disable wifi");			
+		retVal = wifi.setWifiEnabled(false);
+		if (!retVal){
+			Log.i("GALPA","preStartupConfiguration: Failed to disable wifi");			
+			return retVal;
+		}
+		try {
+		    Thread.sleep(2000);
+		} catch(InterruptedException ex) {
+		    Thread.currentThread().interrupt();
+		}
+		Log.i("GALPA","preStartupConfiguration: Successfully reset wifi");		
+		return retVal;		
+		
 	}
 
 

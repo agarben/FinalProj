@@ -99,34 +99,35 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	int BUFLEN = 512;
 
 	struct sockaddr_in my_addr, cli_addr;
-	    int sockfd, i;
-	    socklen_t slen=sizeof(cli_addr);
-	    char buf[BUFLEN];
+	int sockfd, i;
+	socklen_t slen=sizeof(cli_addr);
+	char buf[BUFLEN];
 
-	    if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
-	    	return (*env1)->NewStringUTF(env1, "socket");
-
-
-	    bzero(&my_addr, sizeof(my_addr));
-	    my_addr.sin_family = AF_INET;
-	    my_addr.sin_port = htons(PORT);
-	    my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-	    if (bind(sockfd, (struct sockaddr* ) &my_addr, sizeof(my_addr))==-1)
-	    	return (*env1)->NewStringUTF(env1, "bind");
+	if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
+		return (*env1)->NewStringUTF(env1, "socket");
 
 
-	    while(1)
-	    {
-	        if (recvfrom(sockfd, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen)==-1)
-	        	return (*env1)->NewStringUTF(env1, "errRecv");
-	        close(sockfd);
-	    	return (*env1)->NewStringUTF(env1, buf);
+	bzero(&my_addr, sizeof(my_addr));
+	my_addr.sin_family = AF_INET;
+	my_addr.sin_port = htons(PORT);
+	my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	if (bind(sockfd, (struct sockaddr* ) &my_addr, sizeof(my_addr))==-1)
+		return (*env1)->NewStringUTF(env1, "bind");
 
 
-	    }
+	while(1)
+	{
+		if (recvfrom(sockfd, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen)==-1)
+			return (*env1)->NewStringUTF(env1, "errRecv");
+		close(sockfd);
+		return (*env1)->NewStringUTF(env1, buf);
 
-	    close(sockfd);
+
+	}
+
+	close(sockfd);
 
 }
+
 
