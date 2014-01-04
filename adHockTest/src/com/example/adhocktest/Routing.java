@@ -8,7 +8,6 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 
-import android.net.DhcpInfo;
 import android.net.wifi.WifiManager;
 import android.util.Log;
 
@@ -27,18 +26,21 @@ public class Routing{
 	private WifiManager mWifi;
 	private String BROADCAST_IP = "192.168.2.255";
 	private InetAddress InetBroadcastAddress = null;
-	private long time_between_ip_broadcasts = 5000; //ms
+	private long time_between_ip_broadcasts = 1000; //ms
 	private boolean use_ndk = true;
 	private SenderUDP senderUDP;
 	
+	MainActivity _mActivity;
+	
 
 	
-	public Routing(String ip_to_assign)
+	public Routing(String ip_to_assign, MainActivity mActivity)
 	{ 
+		_mActivity = mActivity;
 		this.my_ip = ip_to_assign;
 		senderUDP = new SenderUDP(BROADCAST_IP,"HELLO_FROM<"+my_ip+">");
 		
-		if (!use_ndk) {
+		if (!use_ndk) {   // TODO: Delete this - deprecated
 			try {
 				this.InetBroadcastAddress = InetAddress.getByName(BROADCAST_IP);
 				Log.i("GALPA","initialized broadcast ip InetAddress");
@@ -54,14 +56,13 @@ public class Routing{
 				e.printStackTrace();
 			}
 			this.broadcast_ip_packet = new DatagramPacket(this.my_ip.getBytes(), this.my_ip.getBytes().length, this.InetBroadcastAddress, PORT);	
-		} else {
-			Log.i("GALPA","Implement ndk broadcast");
-		}
+		} 
 	}
 	
 	/* The function stops/starts the broadcast IP thread: decision = true -> start
 	 *                                                    decision = false -> stop
 	 */
+	@SuppressWarnings("deprecation")
 	public void broadcastIP(boolean decision){
 		
 		if (decision){
@@ -81,8 +82,22 @@ public class Routing{
              
         	while(true)
         	{
-        		if (!use_ndk) {
-	        		try{
+        		
+        		
+        		if (use_ndk) {
+	        		try {
+						Thread.sleep(time_between_ip_broadcasts);
+    					senderUDP.sendMsg();
+					} catch (InterruptedException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+    				catch (IOException e){
+    					e.printStackTrace();
+    				}
+        		} else {
+        			
+        			try{
 						Log.i("GALPA", "JAVA:Broadcasting my IP " + my_ip);
 						broadcast_ip_socket.send(broadcast_ip_packet);
 
@@ -95,37 +110,15 @@ public class Routing{
 	        				e.printStackTrace();
 	        				Log.i("GALPA","InterruptedException while broadcasting IP thread");
 	        		}
-        		} else {
-	        		try {
-						Thread.sleep(time_between_ip_broadcasts);
-    					senderUDP.sendMsg();
-					} catch (InterruptedException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					}
-    				catch (IOException e){
-    					e.printStackTrace();
-    				}
         		}
         	}
 
         }
 	   });
 	
-		 /* private InetAddress getBroadcastAddress() throws IOException {
-			    DhcpInfo dhcp = mWifi.getDhcpInfo();
-			    if (dhcp == null) {
-			      Log.d(TAG, "Could not get dhcp info");
-			      return null;
-			    }
-	
-			    int broadcast = (dhcp.ipAddress & dhcp.netmask) | ~dhcp.netmask;
-			    byte[] quads = new byte[4];
-			    for (int k = 0; k < 4; k++)
-			      quads[k] = (byte) ((broadcast >> k * 8) & 0xFF);
-			    return InetAddress.getByAddress(quads);
-			  }
-			  */
+	void processHello(String rx_msg) {
+		_mActivity.adapterAdd(rx_msg);
+	}
 }
 
 

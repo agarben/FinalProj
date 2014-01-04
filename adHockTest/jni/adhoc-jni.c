@@ -101,10 +101,16 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	struct sockaddr_in my_addr, cli_addr;
 	int sockfd, i;
 	socklen_t slen=sizeof(cli_addr);
-	char buf[BUFLEN];
+	char* buf;
+	buf = (char*)malloc(BUFLEN*sizeof(char));
+	for (i=0; i<BUFLEN; i++) {
+		buf[i] = '\0';
+	}
 
-	if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
+	if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1) {
+		free(buf);
 		return (*env1)->NewStringUTF(env1, "socket");
+	}
 
 
 	bzero(&my_addr, sizeof(my_addr));
@@ -112,22 +118,20 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	my_addr.sin_port = htons(PORT);
 	my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	if (bind(sockfd, (struct sockaddr* ) &my_addr, sizeof(my_addr))==-1)
+	if (bind(sockfd, (struct sockaddr* ) &my_addr, sizeof(my_addr))==-1) {
+		free(buf);
 		return (*env1)->NewStringUTF(env1, "bind");
-
+	}
 
 	while(1)
 	{
-		if (recvfrom(sockfd, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen)==-1)
+		if (recvfrom(sockfd, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen)==-1) {
+			free(buf);
 			return (*env1)->NewStringUTF(env1, "errRecv");
+		}
 		close(sockfd);
-		return (*env1)->NewStringUTF(env1, buf);
-
-
+		return (*env1)->NewStringUTF(env1, buf); // check if this is a memory leak
 	}
-
-	close(sockfd);
-
 }
 
 

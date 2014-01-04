@@ -31,12 +31,12 @@ public class ReceiverUDP extends Thread{
 	private Handler handler = new Handler();
 	ArrayAdapter<String> adapter;
 	
-	MainActivity _mActivity; 
+	Routing _routing;
 	
-	public ReceiverUDP(TextView tx_RX, MainActivity mActivity){
+	public ReceiverUDP(TextView tx_RX, Routing routing){
 
 		this.tx_RX = tx_RX;
-		_mActivity = mActivity;
+		_routing  = routing;
 	}
 	
 	public void run(){
@@ -60,18 +60,21 @@ public class ReceiverUDP extends Thread{
 			Log.i("GALPA","Java:Listening to socket");
 		}
 		while (1<2)
-		{
+		{	
 			
 			try {
 				
 				if (use_ndk) {
 					final String rx_str = new String(RecvUdpJNI());
+					Log.i("GALPA","String is : "+rx_str);
 					handler.post(new Runnable(){
-			            public void run() {
-			            	if (rx_str.startsWith("HELLO_BCAST") == true) {
-			            		tx_RX.setText( rx_str );
+						public void run() {
+			            	if (rx_str.startsWith("HELLO_FROM<") == true) {
+			            		_routing.processHello(rx_str);
 			            	} else {
-			            		_mActivity.adapterAdd( rx_str );
+			            		tx_RX.clearComposingText();
+			            		tx_RX.setText( rx_str );
+			            		
 			            	}
 			            }});
 				} else {

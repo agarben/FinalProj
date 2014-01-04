@@ -4,11 +4,8 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.UnknownHostException;
-import android.widget.Toast;
 
 import android.util.Log;
-import android.widget.Toast;
 
 public class SenderUDP {
 
@@ -59,6 +56,7 @@ public class SenderUDP {
 			datagramSocket.send(sendPacket);
 			datagramSocket.close();
 		}
+		
 			
 		return msg.getBytes().toString();
 	}

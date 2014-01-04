@@ -1,6 +1,5 @@
 package com.example.adhocktest;
 
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,7 +9,6 @@ import android.os.Bundle;
 import android.app.Activity;
 import android.content.Context;
 import android.util.Log;
-import android.view.Menu;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
@@ -36,10 +34,11 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	private TextView tv_rem_ip;
 
 	Spinner ip_spinner;
-	// String[] ip_array = { "","" , "", "","" };
 	List<String> ip_array;
 	ArrayAdapter<String> adapter;
 	private String target_ip;
+	
+	private Routing routing;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -71,13 +70,16 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 
 		AHE = new AdHocEnabler("BENGAL", my_ip);
 		AHE.ActivateAdHoc();
+		
+		//////////////////////////
+		// Start broadcasting my ip
+		//////////////////////////
+		routing = new Routing(my_ip, this);
+		routing.broadcastIP(true);
+		
 		StartListening();
 
-		// ////////////////////////
-		// Start broadcasting my ip
-		// ////////////////////////
-		Routing sendBCAST = new Routing(my_ip);
-		sendBCAST.broadcastIP(true);
+
 
 		toast1.show();
 		tv_ip.setText("Local ip: " + my_ip);
@@ -130,7 +132,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	}
 
 	public void StartListening() {
-		ReceiverUDP receiverUDP = new ReceiverUDP(this.txt_RX, this);
+		ReceiverUDP receiverUDP = new ReceiverUDP(this.txt_RX, this.routing);
 		receiverUDP.start();
 	}
 	
