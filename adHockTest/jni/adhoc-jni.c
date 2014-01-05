@@ -49,6 +49,7 @@ typedef struct MemberInNetwork {
 	node_closeness cur_node_closeness;
 	char* node_ip;
 	struct MemberInNetwork * NextNode;
+	struct MemberInNetwork * PrevNode;
 	//need to add more parameters such as last received etc
 } MemberInNetwork;
 
@@ -83,9 +84,9 @@ Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1,
 // TODO Add FREE function
 
 /*
- * UpdateNetworkMap : receive node_ip, node_type - add the data to the network map
+ * AddToNetworkMap : receive node_ip, node_type - add the data to the network map
  */
-int UpdateNetworkMap(char* node_ip, node_closeness node_type){
+int AddToNetworkMap(char* node_ip, node_closeness node_type){
 
 	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","Need to add node with ip :[%s] to network map", node_ip);
 
@@ -98,16 +99,76 @@ int UpdateNetworkMap(char* node_ip, node_closeness node_type){
 	temp->node_ip = (char*)malloc(16*sizeof(char));
 	strcpy(temp->node_ip,node_ip);
 	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP"," ip to add :[%s]. the ip that was added: [%s] ", node_ip,temp->node_ip);
-	if (MyNetworkMap->num_of_nodes == 1)
+	if (MyNetworkMap->num_of_nodes == 1){
+		temp->PrevNode=NULL;
 		MyNetworkMap->FirstMember = temp;
-	else
+	}
+	else{
 		LastNetworkMember->NextNode = temp;
+		temp->PrevNode = LastNetworkMember;
+	}
 	LastNetworkMember = temp;
-
 
 	return 0;
 
 }
+
+/*
+ * RemoveFromNetworkMap : receive MemberInNetwork to remove
+ */
+int RemoveFromNetworkMap(MemberInNetwork * member_to_remove){
+
+	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","RemoveFromNetworkMap: Received a request to remove node: [%s]", member_to_remove->node_ip);
+
+	//check if there is only one member in network
+	if (MyNetworkMap->FirstMember == LastNetworkMember){
+
+		__android_log_write(ANDROID_LOG_INFO, "NETWORKMAP","RemoveFromNetworkMap: There is only one node in the network (first = last)");
+
+		MyNetworkMap->FirstMember = NULL;
+		LastNetworkMember = NULL;
+		free(member_to_remove->node_ip);
+		free(member_to_remove);
+
+	}
+	else{
+
+		/*
+		 * the node that we want to remove-  need to check if its first, last or in the middle.
+		 * first : point FirstMember to the second member.
+		 * last : point LastMember to one before current last
+		 * default : link previous and next nodes of the current node
+		 */
+		if (member_to_remove == LastNetworkMember){
+
+			member_to_remove->PrevNode->NextNode = NULL;
+			LastNetworkMember = member_to_remove->PrevNode;
+			__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","RemoveFromNetworkMap: Removing LastNetworkMember.New LastNetworkMember is: [%s]", LastNetworkMember->node_ip);
+		}
+		else{
+			if (member_to_remove == MyNetworkMap->FirstMember){
+				member_to_remove->NextNode->PrevNode = NULL;
+				MyNetworkMap->FirstMember = member_to_remove->NextNode;
+				__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","RemoveFromNetworkMap: Removing FirstMember. New FirstMember is: [%s]", MyNetworkMap->FirstMember->node_ip);
+			}
+			else{
+
+				member_to_remove->NextNode->PrevNode = member_to_remove->PrevNode;
+				member_to_remove->PrevNode->NextNode = member_to_remove->NextNode;
+				__android_log_write(ANDROID_LOG_INFO, "NETWORKMAP","RemoveFromNetworkMap: Removing node somewhere in the middle");
+			}
+
+		}
+
+		free(member_to_remove->node_ip);
+		free(member_to_remove);
+	}
+
+	MyNetworkMap->num_of_nodes -= 1;
+	return 0;
+
+}
+
 
 /*
  * CheckNodeExistence - checks if node exists in the network map, if it doesn't - adds it
@@ -141,7 +202,7 @@ int CheckNodeExistence(struct sockaddr_in cli_addr,char* buf){
 	}
 
 	//add node to network map.
-	retVal = UpdateNetworkMap(node_ip,DIRECT_NEIGHBOUR);
+	retVal = AddToNetworkMap(node_ip,DIRECT_NEIGHBOUR);
 
 
 	return retVal;
@@ -159,8 +220,8 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
 {
 	int sock_fd;
 
-	char *_ip = (*env)->GetStringUTFChars(env, ip, 0);
-	char *send_buf = (*env)->GetStringUTFChars(env, message, 0);
+	const char *_ip = (*env)->GetStringUTFChars(env, ip, 0);
+	const char *send_buf = (*env)->GetStringUTFChars(env, message, 0);
 
 	////////////////
 	/// create socket
