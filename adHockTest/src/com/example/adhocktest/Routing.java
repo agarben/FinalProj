@@ -18,7 +18,7 @@ import android.util.Log;
 public class Routing{
 	
 	
-	public native int InitializeMap( );	
+	public native int InitializeMap( String ip_to_set );	
     static {
         System.loadLibrary("adhoc-jni");
     }
@@ -45,7 +45,7 @@ public class Routing{
 		_ip_time_map = new HashMap<String, Integer>();
 		this.my_ip = ip_to_assign;
 		senderUDP = new SenderUDP(BROADCAST_IP,"HELLO_FROM<"+my_ip+">");
-		InitializeMap();
+		InitializeMap(this.my_ip);
 		if (!use_ndk) {
 
 			try {

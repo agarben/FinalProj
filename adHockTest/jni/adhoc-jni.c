@@ -50,6 +50,7 @@ typedef struct MemberInNetwork {
 	char* node_ip;
 	struct MemberInNetwork * NextNode;
 	struct MemberInNetwork * PrevNode;
+	struct NetworkMap * SubNetwork;
 	//need to add more parameters such as last received etc
 } MemberInNetwork;
 
@@ -57,10 +58,14 @@ typedef struct MemberInNetwork {
 typedef struct NetworkMap {
 	int num_of_nodes;
 	MemberInNetwork* FirstMember;
+	MemberInNetwork* LastNetworkMember;
+	char node_base_ip[16];
 } NetworkMap;
 
 NetworkMap* MyNetworkMap;
-MemberInNetwork* LastNetworkMember;
+//MemberInNetwork* LastNetworkMember;
+int tempGlobal;
+
 
 
 
@@ -69,49 +74,114 @@ MemberInNetwork* LastNetworkMember;
  */
 jint
 Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1,
-        jobject thiz){
+        jobject thiz,jstring ip_to_init){
 
-	LastNetworkMember=NULL;
+	tempGlobal=0;
 	MyNetworkMap = (NetworkMap*)malloc(sizeof(NetworkMap));
-	if (MyNetworkMap==NULL)
+	if (MyNetworkMap==NULL){
+		__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","InitializeMap failed. could not allocate memory for MyNetworkMap");
 		return -1;
+	}
+	char const * get_my_ip = (*env1)->GetStringUTFChars(env1, ip_to_init, 0);
+	strcpy(MyNetworkMap->node_base_ip,get_my_ip);
 	MyNetworkMap->num_of_nodes=0;
 	MyNetworkMap->FirstMember=NULL;
+
+	//LastNetworkMember=NULL;
+	MyNetworkMap->LastNetworkMember=NULL;
+	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","InitializeMap completed successfully. My IP : [%s]", MyNetworkMap->node_base_ip);
 	return 0;
 
 }
 
 // TODO Add FREE function
 
+///*
+// * AddToNetworkMap : receive node_ip, node_type - add the data to the network map
+// */
+//int AddToNetworkMap(char* node_ip, node_closeness node_type){
+//
+//	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","Need to add node with ip :[%s] to network map", node_ip);
+//
+//
+//	MemberInNetwork * temp = (MemberInNetwork*)malloc(sizeof(MemberInNetwork));
+//	MyNetworkMap->num_of_nodes += 1;
+//	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","OK2 - num of nodes : %d ", MyNetworkMap->num_of_nodes);
+//	temp->NextNode = NULL;
+//	temp->cur_node_closeness = node_type;
+//	temp->node_ip = (char*)malloc(16*sizeof(char));
+//	strcpy(temp->node_ip,node_ip);
+//	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP"," ip to add :[%s]. the ip that was added: [%s] ", node_ip,temp->node_ip);
+//	if (MyNetworkMap->num_of_nodes == 1){
+//		temp->PrevNode=NULL;
+//		MyNetworkMap->FirstMember = temp;
+//	}
+//	else{
+//		LastNetworkMember->NextNode = temp;
+//		temp->PrevNode = LastNetworkMember;
+//	}
+//	LastNetworkMember = temp;
+//
+//	return 0;
+//
+//}
+
 /*
  * AddToNetworkMap : receive node_ip, node_type - add the data to the network map
  */
-int AddToNetworkMap(char* node_ip, node_closeness node_type){
+int AddToNetworkMap(char* node_ip, node_closeness node_type, char* buf,NetworkMap * Network_Head){
 
-	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","Need to add node with ip :[%s] to network map", node_ip);
-
+	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","Need to add node with ip :[%s] to network map with closeness value of %d", node_ip,node_type);
 
 	MemberInNetwork * temp = (MemberInNetwork*)malloc(sizeof(MemberInNetwork));
-	MyNetworkMap->num_of_nodes += 1;
-	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","OK2 - num of nodes : %d ", MyNetworkMap->num_of_nodes);
 	temp->NextNode = NULL;
 	temp->cur_node_closeness = node_type;
 	temp->node_ip = (char*)malloc(16*sizeof(char));
+	__android_log_write(ANDROID_LOG_INFO, "NETWORKMAP","BEFORE MALLOC SUBNETWORK");
+	temp->SubNetwork = (NetworkMap*)malloc(sizeof(NetworkMap));
+	if (temp->SubNetwork == NULL)
+	{
+		__android_log_write(ANDROID_LOG_INFO, "NETWORKMAP","FAILURE TO ALLOCATE SUBNETWORK");
+		return 0;
+	}
+	__android_log_write(ANDROID_LOG_INFO, "NETWORKMAP","AFTER MALLOC SUBNETWORK SUCCESS");
+	temp->SubNetwork->FirstMember = NULL;
+	temp->SubNetwork->LastNetworkMember = NULL;
+	__android_log_write(ANDROID_LOG_INFO, "NETWORKMAP","AFTER NULL POINTER TO SUBNET FIRST AND LAST");
+	strcpy(temp->SubNetwork->node_base_ip,node_ip);
+	temp->SubNetwork->num_of_nodes = 0;
 	strcpy(temp->node_ip,node_ip);
-	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP"," ip to add :[%s]. the ip that was added: [%s] ", node_ip,temp->node_ip);
-	if (MyNetworkMap->num_of_nodes == 1){
+	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","ip to add :[%s]. the ip that was added: [%s] ", node_ip,temp->node_ip);
+
+	Network_Head->num_of_nodes += 1;
+	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","OK2 - num of nodes in base network of [%s] : %d ",Network_Head->node_base_ip, Network_Head->num_of_nodes);
+	if (Network_Head->num_of_nodes == 1){
+		__android_log_write(ANDROID_LOG_INFO, "NETWORKMAP","NETWORKHEAD -> NUM OF NODES == 1");
 		temp->PrevNode=NULL;
-		MyNetworkMap->FirstMember = temp;
+		Network_Head->FirstMember = temp;
 	}
 	else{
-		LastNetworkMember->NextNode = temp;
-		temp->PrevNode = LastNetworkMember;
+		__android_log_write(ANDROID_LOG_INFO, "NETWORKMAP","NETWORKHEAD -> NUM OF NODES != 1");
+		Network_Head->LastNetworkMember->NextNode = temp;
+		temp->PrevNode = Network_Head->LastNetworkMember;
 	}
-	LastNetworkMember = temp;
+	Network_Head->LastNetworkMember = temp;
+	/*
+	 * add subnetwork .
+	 * allocate memory
+	 * run over buf and get IPs
+	 * call AddToNetworkMap
+	 */
+	tempGlobal++;
+	if (tempGlobal < 2)
+		CheckNodeExistence("192.168.2.222",NULL,temp->SubNetwork,NEIGHBOUR_OF_NEIGHBOUR);
 
 	return 0;
 
 }
+
+
+
 
 /*
  * RemoveFromNetworkMap : receive MemberInNetwork to remove
@@ -121,12 +191,12 @@ int RemoveFromNetworkMap(MemberInNetwork * member_to_remove){
 	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","RemoveFromNetworkMap: Received a request to remove node: [%s]", member_to_remove->node_ip);
 
 	//check if there is only one member in network
-	if (MyNetworkMap->FirstMember == LastNetworkMember){
+	if (MyNetworkMap->FirstMember == MyNetworkMap->LastNetworkMember){
 
 		__android_log_write(ANDROID_LOG_INFO, "NETWORKMAP","RemoveFromNetworkMap: There is only one node in the network (first = last)");
 
 		MyNetworkMap->FirstMember = NULL;
-		LastNetworkMember = NULL;
+		MyNetworkMap->LastNetworkMember = NULL;
 		free(member_to_remove->node_ip);
 		free(member_to_remove);
 
@@ -139,11 +209,11 @@ int RemoveFromNetworkMap(MemberInNetwork * member_to_remove){
 		 * last : point LastMember to one before current last
 		 * default : link previous and next nodes of the current node
 		 */
-		if (member_to_remove == LastNetworkMember){
+		if (member_to_remove == MyNetworkMap->LastNetworkMember){
 
 			member_to_remove->PrevNode->NextNode = NULL;
-			LastNetworkMember = member_to_remove->PrevNode;
-			__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","RemoveFromNetworkMap: Removing LastNetworkMember.New LastNetworkMember is: [%s]", LastNetworkMember->node_ip);
+			MyNetworkMap->LastNetworkMember = member_to_remove->PrevNode;
+			__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","RemoveFromNetworkMap: Removing LastNetworkMember.New LastNetworkMember is: [%s]", MyNetworkMap->LastNetworkMember->node_ip);
 		}
 		else{
 			if (member_to_remove == MyNetworkMap->FirstMember){
@@ -170,46 +240,79 @@ int RemoveFromNetworkMap(MemberInNetwork * member_to_remove){
 }
 
 
+///*
+// * CheckNodeExistence - checks if node exists in the network map, if it doesn't - adds it
+// */
+//// TODO: Need to check closeness of the node and perhaps change it, need to add DEBUG method.
+//// TODO: check mem allocations
+//int CheckNodeExistence(struct sockaddr_in cli_addr,char* buf){
+//
+//	int i;
+//	int retVal = -1;
+//	char node_ip[16];
+//
+//	MemberInNetwork * temp = MyNetworkMap->FirstMember;
+//
+//	//extract node-ip
+//	strcpy(node_ip,inet_ntoa(cli_addr.sin_addr));
+//
+//	//check if exists in the network map
+//	while(temp!=NULL){
+//		if(strcmp(temp->node_ip,node_ip)==0){
+//			//node was found in the network map
+//			__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","The node with ip :[%s] is already in the network map", node_ip);
+//			return 0;
+//		}
+//		else{
+//			//this node still isn't the node we received
+//			__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","Current node : [%s] is not the node we want to look for [%s]", temp->node_ip,node_ip);
+//			temp = temp->NextNode;
+//		}
+//	}
+//
+//	//add node to network map.
+//	retVal = AddToNetworkMap(node_ip,DIRECT_NEIGHBOUR);
+//
+//
+//	return retVal;
+//
+//}
+
 /*
  * CheckNodeExistence - checks if node exists in the network map, if it doesn't - adds it
  */
 // TODO: Need to check closeness of the node and perhaps change it, need to add DEBUG method.
 // TODO: check mem allocations
-int CheckNodeExistence(struct sockaddr_in cli_addr,char* buf){
+int CheckNodeExistence(char node_ip_to_check[16],char* buf, NetworkMap * Network_Head,node_closeness closeness_to_add){
 
 	int i;
 	int retVal = -1;
-	char node_ip[16];
 
-	MemberInNetwork * temp = MyNetworkMap->FirstMember;
+	MemberInNetwork * temp = Network_Head->FirstMember;
 
-	//extract node-ip
-	strcpy(node_ip,inet_ntoa(cli_addr.sin_addr));
+	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","[CheckNodeExistence]: Check if [%s] has [%s] in the network map", Network_Head->node_base_ip,node_ip_to_check);
 
 	//check if exists in the network map
 	while(temp!=NULL){
-		__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","This node ip :[%s] ", temp->node_ip);
-		if(strcmp(temp->node_ip,node_ip)==0){
+		if(strcmp(temp->node_ip,node_ip_to_check)==0){
 			//node was found in the network map
-			__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","The node with ip :[%s] is already in the network map", node_ip);
-			return 0;
+			__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","The node with ip :[%s] is already in the network map", node_ip_to_check);
+			return 1;
 		}
 		else{
 			//this node still isn't the node we received
-			__android_log_write(ANDROID_LOG_INFO, "NETWORKMAP","NOT IN MAP ");
+			__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","Current node : [%s] is not the node we want to look for [%s]", temp->node_ip,node_ip_to_check);
 			temp = temp->NextNode;
 		}
 	}
 
 	//add node to network map.
-	retVal = AddToNetworkMap(node_ip,DIRECT_NEIGHBOUR);
+	retVal = AddToNetworkMap(node_ip_to_check,closeness_to_add,buf,Network_Head);
 
 
-	return retVal;
+	return  retVal;
 
 }
-
-
 
 
 
@@ -309,10 +412,11 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	if (recvfrom(sockfd, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen)==-1)
 		return (*env1)->NewStringUTF(env1, "errRecv");
 
-//	//check if hello message - try to update network map if it is
-	if (strstr(buf,HELLO_MSG)!=NULL)
-		CheckNodeExistence(cli_addr,buf);
-
+//	//check if hello message - try to update network map if it isn't my own broadcast
+	if ((strstr(buf,HELLO_MSG)!=NULL) && (strstr(buf,MyNetworkMap->node_base_ip)==NULL))
+	{
+		CheckNodeExistence(inet_ntoa(cli_addr.sin_addr),buf,MyNetworkMap,DIRECT_NEIGHBOUR);
+	}
 	//if received successfully , close socket
 	close(sockfd);
 
