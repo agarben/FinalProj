@@ -36,13 +36,25 @@ public class SenderUDP {
 		// TODO: check data length
 		String str = "";
 		if (use_ndk) {
-			Log.i("GALPA","NDK: sending to IPAddress "+ip);
-			if (this.ip == "192.168.2.255") {
-				str = SendUdpJNI(ip,receiverPort,msg,1);
-			} else {
-				str = SendUdpJNI(ip,receiverPort,msg,0);
+			
+			try {			
+				Log.i("GALPA","NDK: sending to IPAddress "+ip);
+				if (this.ip == "192.168.2.255") {
+	
+					Log.i("GALPA","JAVA: Stack A ");
+					str = SendUdpJNI(ip,receiverPort,msg,1);
+					Log.i("GALPA","JAVA: Stack B ");
+				} else {
+					Log.i("GALPA","JAVA: Stack C ");
+					str = SendUdpJNI(ip,receiverPort,msg,0);
+					Log.i("GALPA","JAVA: Stack D ");
+				}
+		 		Log.i("GALPA","NDK:SendUdpJNI returned: "+str);
+			} catch (StackOverflowError e) {
+
+				Log.i("GALPA","CAUGHT 0");
+				e.printStackTrace(); 
 			}
-	 		Log.i("GALPA","NDK:SendUdpJNI returned: "+str);
 		} else {
 			InetAddress IPAddress = InetAddress.getByName(this.ip);
 			DatagramPacket sendPacket;

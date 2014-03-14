@@ -34,6 +34,12 @@
 #include <jni.h>
 #include <android/log.h>
 
+#define HEADER_SIZE_DWORD 3
+#define ORIGINATOR_IP_OFFSET 4
+#define DESTINATION_IP_OFFSET 8
+#define DATA_OFFSET 12
+#define DWORD_BIT 32
+#define DWORD_BYTE 4
 
 /////
 //DEFINE MEMBER IN NETWORK
@@ -66,9 +72,6 @@ NetworkMap* MyNetworkMap;
 //MemberInNetwork* LastNetworkMember;
 int tempGlobal;
 
-
-
-
 /*
  * InitializeMap.
  */
@@ -76,7 +79,6 @@ jint
 Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1,
         jobject thiz,jstring ip_to_init){
 
-	tempGlobal=0;
 	MyNetworkMap = (NetworkMap*)malloc(sizeof(NetworkMap));
 	if (MyNetworkMap==NULL){
 		__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","InitializeMap failed. could not allocate memory for MyNetworkMap");
@@ -87,44 +89,11 @@ Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1,
 	MyNetworkMap->num_of_nodes=0;
 	MyNetworkMap->FirstMember=NULL;
 
-	//LastNetworkMember=NULL;
 	MyNetworkMap->LastNetworkMember=NULL;
 	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","InitializeMap completed successfully. My IP : [%s]", MyNetworkMap->node_base_ip);
 	return 0;
 
 }
-
-// TODO Add FREE function
-
-///*
-// * AddToNetworkMap : receive node_ip, node_type - add the data to the network map
-// */
-//int AddToNetworkMap(char* node_ip, node_closeness node_type){
-//
-//	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","Need to add node with ip :[%s] to network map", node_ip);
-//
-//
-//	MemberInNetwork * temp = (MemberInNetwork*)malloc(sizeof(MemberInNetwork));
-//	MyNetworkMap->num_of_nodes += 1;
-//	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP","OK2 - num of nodes : %d ", MyNetworkMap->num_of_nodes);
-//	temp->NextNode = NULL;
-//	temp->cur_node_closeness = node_type;
-//	temp->node_ip = (char*)malloc(16*sizeof(char));
-//	strcpy(temp->node_ip,node_ip);
-//	__android_log_print(ANDROID_LOG_INFO, "NETWORKMAP"," ip to add :[%s]. the ip that was added: [%s] ", node_ip,temp->node_ip);
-//	if (MyNetworkMap->num_of_nodes == 1){
-//		temp->PrevNode=NULL;
-//		MyNetworkMap->FirstMember = temp;
-//	}
-//	else{
-//		LastNetworkMember->NextNode = temp;
-//		temp->PrevNode = LastNetworkMember;
-//	}
-//	LastNetworkMember = temp;
-//
-//	return 0;
-//
-//}
 
 /*
  * AddToNetworkMap : receive node_ip, node_type - add the data to the network map
@@ -202,7 +171,6 @@ int RemoveFromNetworkMap(MemberInNetwork * member_to_remove){
 
 	}
 	else{
-
 		/*
 		 * the node that we want to remove-  need to check if its first, last or in the middle.
 		 * first : point FirstMember to the second member.
@@ -322,19 +290,56 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
                                                   jobject thiz, jstring ip,jint port, jstring message, jint is_broadcast)
 {
 	int sock_fd;
-
+	static int hey = 0;
+	__android_log_print(ANDROID_LOG_INFO, "Send",  "HEY %d",hey++);
 	const char *_ip = (*env)->GetStringUTFChars(env, ip, 0);
-	const char *send_buf = (*env)->GetStringUTFChars(env, message, 0);
+	const char *data = (*env)->GetStringUTFChars(env, message, 0);   // Message to be sent
+	unsigned char *header = (char*)malloc((300)*sizeof(char));			// A customized header to be attached to the data
+	////////////////
+	// Create header and attach data to it
+	///////////////
+	int k;
 
+	struct in_addr in_addr_holder;
+	inet_pton(AF_INET, "192.168.2.12", header+ORIGINATOR_IP_OFFSET);
+	inet_pton(AF_INET, "1.2.3.4",header+DESTINATION_IP_OFFSET);
+
+	__android_log_print(ANDROID_LOG_INFO, "Send",  " ");
+	__android_log_print(ANDROID_LOG_INFO, "Send",  "Header DWORD0:  [%d %d %d %d]", header[0],header[1],header[2],header[3]);
+	__android_log_print(ANDROID_LOG_INFO, "Send",  "Header DWORD1:  [%d %d %d %d]", header[ORIGINATOR_IP_OFFSET],header[ORIGINATOR_IP_OFFSET+1],header[ORIGINATOR_IP_OFFSET+2],header[ORIGINATOR_IP_OFFSET+3]);
+	__android_log_print(ANDROID_LOG_INFO, "Send",  "Header DWORD2:  [%d %d %d %d]", header[DESTINATION_IP_OFFSET],header[DESTINATION_IP_OFFSET+1],header[DESTINATION_IP_OFFSET+2],header[DESTINATION_IP_OFFSET+3]);
+
+	__android_log_print(ANDROID_LOG_INFO, "Send",  "STACK 1");
+
+	unsigned char *send_buf = (char*)malloc((1000+strlen(data))*sizeof(char));
+	for (k=0; k<(96+strlen(data)); k++) { // TODO: Check if there's a better way of doing this (without copying byte after byte)
+		if (k < 96) {
+			send_buf[k] = header[k];
+		} else
+			send_buf[k] = data[k-96];
+	}
+	send_buf[k] = '\0';
+	__android_log_print(ANDROID_LOG_INFO, "Send",  "k = %d",k);
+	__android_log_print(ANDROID_LOG_INFO, "Send",  "Final send_buf DWORD0:  [%d %d %d %d]", send_buf[0],send_buf[1],send_buf[2],send_buf[3]);
+	__android_log_print(ANDROID_LOG_INFO, "Send",  "Final send_buf DWORD1:  [%d %d %d %d]", send_buf[ORIGINATOR_IP_OFFSET],send_buf[ORIGINATOR_IP_OFFSET+1],send_buf[ORIGINATOR_IP_OFFSET+2],send_buf[ORIGINATOR_IP_OFFSET+3]);
+	__android_log_print(ANDROID_LOG_INFO, "Send",  "Final send_buf DWORD2:  [%d %d %d %d]", send_buf[DESTINATION_IP_OFFSET],send_buf[DESTINATION_IP_OFFSET+1],send_buf[DESTINATION_IP_OFFSET+2],send_buf[DESTINATION_IP_OFFSET+3]);
+	__android_log_print(ANDROID_LOG_INFO, "Send",  "Sendbuf DATA:  [%s]", send_buf+96);
+	__android_log_print(ANDROID_LOG_INFO, "Send",  " ");
+	__android_log_print(ANDROID_LOG_INFO, "Send",  "~~Final Header destination ip   = [%d %d %d %d]", send_buf[ORIGINATOR_IP_OFFSET],send_buf[ORIGINATOR_IP_OFFSET+1],send_buf[ORIGINATOR_IP_OFFSET+2],send_buf[ORIGINATOR_IP_OFFSET+3]);
+ 	__android_log_print(ANDROID_LOG_INFO, "Send",  "~~Final Header destination ip   = [%d %d %d %d]", send_buf[DESTINATION_IP_OFFSET],send_buf[DESTINATION_IP_OFFSET+1],send_buf[DESTINATION_IP_OFFSET+2],send_buf[DESTINATION_IP_OFFSET+3]);
+	__android_log_print(ANDROID_LOG_INFO, "Send",  " ");
+//	free(header);
+//	free(data);
 	////////////////
 	/// create socket
 	////////////////
 	if (( sock_fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
+
+//		free(send_buf);
 		return (*env)->NewStringUTF(env,"Cannot create socket");
 	}
 
-
-//	__android_log_write(ANDROID_LOG_INFO, "GALPA",  "sock_fd values");
+	__android_log_write(ANDROID_LOG_INFO, "GALPA",  "sock_fd values");
 	__android_log_print(ANDROID_LOG_INFO, "GALPA",  "sock_fd values = %d", sock_fd);
 
 	/////////////////
@@ -342,10 +347,10 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
 	/////////////////
 	int ret=setsockopt(sock_fd, SOL_SOCKET, SO_BROADCAST, &is_broadcast, sizeof(is_broadcast));
 	if (ret) {
-		return (*env)->NewStringUTF(env,"Failed to set setsockopt()");
+//		free(send_buf);
 		close(sock_fd);
+		return (*env)->NewStringUTF(env,"Failed to set setsockopt()");
 	}
-
 
 	////////////////
 	/// send
@@ -357,11 +362,12 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
 	servaddr.sin_port = htons(port);
 
 	if ((inet_aton(_ip,&servaddr.sin_addr)) == 0) {
+//		free(send_buf);
 		close(sock_fd);
 		return (*env)->NewStringUTF(env,"Cannot decode IP address");
 	}
-	int retval = sendto(sock_fd, send_buf, strlen(send_buf), 0, (struct sockaddr*)&servaddr, sizeof(servaddr));
 
+	int retval = sendto(sock_fd, send_buf, k, 0, (struct sockaddr*)&servaddr, sizeof(servaddr));
 
 	char str[100];
 	if ( retval < 0) {
@@ -369,7 +375,10 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
 	} else {
 		sprintf(str, "sendto() Success (retval=%d messge='%s' size=%d ip=%s.", retval,send_buf,strlen(send_buf),_ip);
 	}
+//	free(send_buf);
+
 	close(sock_fd);
+	__android_log_print(ANDROID_LOG_INFO, "Send",  "Gonna return");
 	return (*env)->NewStringUTF(env,str);
 
 }
@@ -413,14 +422,19 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 		return (*env1)->NewStringUTF(env1, "errRecv");
 
 //	//check if hello message - try to update network map if it isn't my own broadcast
-	if ((strstr(buf,HELLO_MSG)!=NULL) && (strstr(buf,MyNetworkMap->node_base_ip)==NULL))
+	if ((strstr(buf+96,HELLO_MSG)!=NULL) && (strstr(buf+96,MyNetworkMap->node_base_ip)==NULL))
 	{
 		CheckNodeExistence(inet_ntoa(cli_addr.sin_addr),buf,MyNetworkMap,DIRECT_NEIGHBOUR);
 	}
+
+	__android_log_print(ANDROID_LOG_INFO, "Recv","buf0 [%d %d %d %d]",buf[0],buf[1],buf[2],buf[3]);
+	__android_log_print(ANDROID_LOG_INFO, "Recv","buf1 [%d %d %d %d]",buf[4],buf[5],buf[6],buf[7]);
+	__android_log_print(ANDROID_LOG_INFO, "Recv","buf2 [%d %d %d %d]",buf[8],buf[9],buf[10],buf[11]);
+	__android_log_print(ANDROID_LOG_INFO, "Recv","MSG [%s]", buf+96);
 	//if received successfully , close socket
 	close(sockfd);
 
-	return (*env1)->NewStringUTF(env1, buf);
+	return (*env1)->NewStringUTF(env1, buf+96); // only return the MSG part
 
 }
 

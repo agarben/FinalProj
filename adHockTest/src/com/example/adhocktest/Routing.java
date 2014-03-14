@@ -16,8 +16,6 @@ import android.net.wifi.WifiManager;
 import android.util.Log;
 
 public class Routing{
-	
-	
 	public native int InitializeMap( String ip_to_set );	
     static {
         System.loadLibrary("adhoc-jni");
@@ -47,7 +45,6 @@ public class Routing{
 		senderUDP = new SenderUDP(BROADCAST_IP,"HELLO_FROM<"+my_ip+">");
 		InitializeMap(this.my_ip);
 		if (!use_ndk) {
-
 			try {
 				this.InetBroadcastAddress = InetAddress.getByName(BROADCAST_IP);
 				Log.i("GALPA","initialized broadcast ip InetAddress");

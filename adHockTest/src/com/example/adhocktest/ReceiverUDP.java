@@ -66,7 +66,7 @@ public class ReceiverUDP extends Thread{
 				
 				if (use_ndk) {
 					final String rx_str = new String(RecvUdpJNI());
-					Log.i("GALPA","String is : "+rx_str);
+					Log.i("GALPA","String is **: "+rx_str);
 					handler.post(new Runnable(){
 						public void run() {
 			            	if (rx_str.startsWith("HELLO_FROM<") == true) {

@@ -64,8 +64,6 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 			Log.i("GALPA", "STARTUP FAILED TO RESET WIFI");
 		}
 		
-
-		
 		/////////////////////////
 		// Enable Ad-hoc
 		/////////////////////////
