@@ -45,7 +45,7 @@ public class ReceiverUDP extends Thread{
 		
 		try {
 			if (!use_ndk) {
-				Log.i("GALPA","JAVA: Opening socket");
+				Log.i("ReceiverUDP.java","JAVA: Opening socket");
 				datagramSocket = new DatagramSocket(port);
 			}
 		} 
@@ -55,9 +55,9 @@ public class ReceiverUDP extends Thread{
 		}
 		
 		if (use_ndk) {
-			Log.i("GALPA","NDK:Opening socket and listening");
+			Log.i("ReceiverUDP.java","NDK:Opening socket and listening");
 		} else {
-			Log.i("GALPA","Java:Listening to socket");
+			Log.i("ReceiverUDP.java","Java:Listening to socket");
 		}
 		while (1<2)
 		{	
@@ -66,7 +66,7 @@ public class ReceiverUDP extends Thread{
 				
 				if (use_ndk) {
 					final String rx_str = new String(RecvUdpJNI());
-					Log.i("GALPA","String is **: "+rx_str);
+					Log.i("ReceiverUDP.java","String is **: "+rx_str);
 					handler.post(new Runnable(){
 						public void run() {
 			            	if (rx_str.startsWith("HELLO_FROM<") == true) {
@@ -78,7 +78,7 @@ public class ReceiverUDP extends Thread{
 			            	}
 			            }});
 				} else {
-					Log.i("GALPA","JAVA: Listening to socket");
+					Log.i("ReceiverUDP.java","JAVA: Listening to socket");
 					DatagramPacket receivePacket = new DatagramPacket(buffer,buffer.length);
 					datagramSocket.receive(receivePacket);
 					final String strRX = new String(receivePacket.getData(), receivePacket.getOffset(), receivePacket.getLength());

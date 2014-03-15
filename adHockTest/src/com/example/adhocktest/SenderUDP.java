@@ -38,27 +38,23 @@ public class SenderUDP {
 		if (use_ndk) {
 			
 			try {			
-				Log.i("GALPA","NDK: sending to IPAddress "+ip);
+				Log.i("SenderUDP.java","NDK: sending to IPAddress "+ip);
 				if (this.ip == "192.168.2.255") {
 	
-					Log.i("GALPA","JAVA: Stack A ");
 					str = SendUdpJNI(ip,receiverPort,msg,1);
-					Log.i("GALPA","JAVA: Stack B ");
 				} else {
-					Log.i("GALPA","JAVA: Stack C ");
 					str = SendUdpJNI(ip,receiverPort,msg,0);
-					Log.i("GALPA","JAVA: Stack D ");
 				}
-		 		Log.i("GALPA","NDK:SendUdpJNI returned: "+str);
+		 		Log.i("SenderUDP.java","NDK:SendUdpJNI returned: "+str);
 			} catch (StackOverflowError e) {
 
-				Log.i("GALPA","CAUGHT 0");
+				Log.i("SenderUDP.java","CAUGHT 0");
 				e.printStackTrace(); 
 			}
 		} else {
 			InetAddress IPAddress = InetAddress.getByName(this.ip);
 			DatagramPacket sendPacket;
-			Log.i("GALPA","JAVA: sending to IPAddress "+IPAddress);
+			Log.i("SenderUDP.java","JAVA: sending to IPAddress "+IPAddress);
 			datagramSocket = new DatagramSocket();
 			
 			datagramSocket.setBroadcast(true); // TODO: if .255 should be true

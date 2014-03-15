@@ -61,7 +61,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		// pre-startup actions
 		// /////
 		if (!preStartupConfiguration()) {
-			Log.i("GALPA", "STARTUP FAILED TO RESET WIFI");
+			Log.i("MainActivity", "STARTUP FAILED TO RESET WIFI");
 		}
 		
 		/////////////////////////
@@ -172,7 +172,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 			}
 		});
 		//ip_array.remove(str_to_rem);
-		Log.i("Routing","Need to remove "+str_to_rem);
+		Log.i("MainActivity.java","Routing: Need to remove "+str_to_rem);
 	}
 	
 	public void initLayoutPointers(){
@@ -200,10 +200,10 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		boolean retVal;
 		
 		wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);
-		Log.i("GALPA", "preStartupConfiguration: Try to enable wifi");
+		Log.i("MainActivity", "preStartupConfiguration: Try to enable wifi");
 		retVal = wifi.setWifiEnabled(true);
 		if (!retVal) {
-			Log.i("GALPA", "preStartupConfiguration: Failed to enable wifi");
+			Log.i("MainActivity", "preStartupConfiguration: Failed to enable wifi");
 			return retVal;
 		}
 		try {
@@ -211,10 +211,10 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		} catch (InterruptedException ex) {
 			Thread.currentThread().interrupt();
 		}
-		Log.i("GALPA", "preStartupConfiguration: Try to disable wifi");
+		Log.i("MainActivity", "preStartupConfiguration: Try to disable wifi");
 		retVal = wifi.setWifiEnabled(false);
 		if (!retVal) {
-			Log.i("GALPA", "preStartupConfiguration: Failed to disable wifi");
+			Log.i("MainActivity", "preStartupConfiguration: Failed to disable wifi");
 			return retVal;
 		}
 		try {
@@ -222,7 +222,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		} catch (InterruptedException ex) {
 			Thread.currentThread().interrupt();
 		}
-		Log.i("GALPA", "preStartupConfiguration: Successfully reset wifi");
+		Log.i("MainActivity", "preStartupConfiguration: Successfully reset wifi");
 		return retVal;
 	}
 	

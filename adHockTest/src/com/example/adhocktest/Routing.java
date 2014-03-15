@@ -47,11 +47,11 @@ public class Routing{
 		if (!use_ndk) {
 			try {
 				this.InetBroadcastAddress = InetAddress.getByName(BROADCAST_IP);
-				Log.i("GALPA","initialized broadcast ip InetAddress");
+				Log.i("Routing.java","initialized broadcast ip InetAddress");
 				this.broadcast_ip_socket = new DatagramSocket();
-				Log.i("GALPA","initialized broadcast_ip_socket");
+				Log.i("Routing.java","initialized broadcast_ip_socket");
 				this.broadcast_ip_socket.setBroadcast(true);
-				Log.i("GALPA","set socket to broadcast");	
+				Log.i("Routing.java","set socket to broadcast");	
 				
 			}	catch (UnknownHostException e) {
 				e.printStackTrace();
@@ -71,11 +71,11 @@ public class Routing{
 		
 		if (decision){
 			broadcastMyIP.start();
-			Log.i("GALPA", "device with IP: " + this.my_ip + " got an order to start broadcasting IP");
+			Log.i("Routing.java", "device with IP: " + this.my_ip + " got an order to start broadcasting IP");
 		}
 		else{
 		    broadcastMyIP.stop();
-			Log.i("GALPA", "device with IP: " + this.my_ip + " got an order to stop broadcasting IP");
+			Log.i("Routing.java", "device with IP: " + this.my_ip + " got an order to stop broadcasting IP");
 		}
 	}
 	
@@ -102,16 +102,16 @@ public class Routing{
         		} else {
         			
         			try{
-						Log.i("GALPA", "JAVA:Broadcasting my IP " + my_ip);
+						Log.i("Routing.java", "JAVA:Broadcasting my IP " + my_ip);
 						broadcast_ip_socket.send(broadcast_ip_packet);
-						Log.i("GALPA","device with IP " + my_ip + " waits for " +time_between_ip_broadcasts/1000+" seconds before broadcasting again");
+						Log.i("Routing.java","device with IP " + my_ip + " waits for " +time_between_ip_broadcasts/1000+" seconds before broadcasting again");
 	        		Thread.sleep(time_between_ip_broadcasts);
 	        		}	catch (IOException e){
 	        				e.printStackTrace();
-	        				Log.i("GALPA","IOException while broadcasting IP thread");
+	        				Log.i("Routing.java","IOException while broadcasting IP thread");
 	        		}	catch(InterruptedException e){
 	        				e.printStackTrace();
-	        				Log.i("GALPA","InterruptedException while broadcasting IP thread");
+	        				Log.i("Routing.java","InterruptedException while broadcasting IP thread");
 	        		}
         		}
         	}
@@ -126,18 +126,19 @@ public class Routing{
 
 
 	void updateIpCounter() {
-	    Log.i("Routing","UpdateIpCounter()");
+	    Log.i("Routing.java","UpdateIpCounter()");
 		for (Map.Entry<String, Integer> entry : _ip_time_map.entrySet())
 		{
+		    Log.i("Routing.java","Entering iterator");
 			String key = entry.getKey();
 			if (entry.getValue() == 0) {
 				_mActivity.adapterRem(key);
-			    Log.i("Routing","Removed from map :  Key= "+entry.getKey());
+			    Log.i("Routing.java","Removed from map :  Key= "+entry.getKey());
 				_ip_time_map.remove(entry.getKey());
+			    break;  //TODO: Think of a more dynamic solution, this will make us delay other entries' counts
 			} else {
-			    Log.i("Routing","Before :  Key= "+entry.getKey()+" Value= "+ entry.getValue());
 			    _ip_time_map.put(entry.getKey() , entry.getValue()-1 );
-			    Log.i("Routing","After :  Key= "+entry.getKey()+" Value= "+ entry.getValue());
+			    Log.i("Routing.java","Updated value for Key= "+entry.getKey()+". New Value= "+ entry.getValue());
 			}
 		}
 	}
