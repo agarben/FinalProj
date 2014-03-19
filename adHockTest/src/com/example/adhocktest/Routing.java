@@ -42,7 +42,8 @@ public class Routing{
 		_mActivity = mActivity;
 		_ip_time_map = new HashMap<String, Integer>();
 		this.my_ip = ip_to_assign;
-		senderUDP = new SenderUDP(BROADCAST_IP,"HELLO_FROM<"+my_ip+">");
+//		//senderUDP = new SenderUDP(BROADCAST_IP,"HELLO_FROM<"+my_ip+">");
+		senderUDP = new SenderUDP(BROADCAST_IP,"HELLO_MSG:"); 
 		InitializeMap(this.my_ip);
 		if (!use_ndk) {
 			try {

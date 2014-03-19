@@ -1,0 +1,7 @@
+*.o
+*.png
+*.dex
+*.apk
+*.ap_
+*.so
+*.class

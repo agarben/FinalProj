@@ -40,6 +40,11 @@
 #define DATA_OFFSET 12
 #define DWORD_BIT 32
 #define DWORD_BYTE 4
+#define HELLO_MSG_LEN 1000
+#define TRUE 1
+#define FALSE 0
+#define STR_EQUAL 0
+#define STR_NOT_EQUAL 1
 
 /////
 //DEFINE MEMBER IN NETWORK
@@ -70,6 +75,22 @@ typedef struct NetworkMap {
 NetworkMap* MyNetworkMap;
 NetworkMap* AllNetworkMembersList;
 int tempGlobal;
+
+
+
+
+void GenerateHelloMsg(char* base_string, NetworkMap* network_head) {
+
+	MemberInNetwork* temp = network_head->FirstMember;
+	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","The String so far is [%s]",base_string);
+	while (temp!=NULL) {
+		strcat(base_string,temp->node_ip);
+		strcat(base_string,"(");
+		GenerateHelloMsg(base_string, temp->SubNetwork);
+		strcat(base_string,")");
+		temp = temp->NextNode;
+	}
+}
 
 /*
  * InitializeMap.
@@ -103,8 +124,6 @@ Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1,
 
 	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","InitializeMap(): completed successfully. My IP : [%s]", MyNetworkMap->node_base_ip);
 
-
-	ProcessHelloMsg(buffer, strlen(buffer),MyNetworkMap);
 	return 0;
 
 }
@@ -114,46 +133,50 @@ Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1,
  */
 int AddToNetworkMap(char* node_ip,NetworkMap * Network_Head){
 
-	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): Need to add node with ip :[%s] to network map with base ip : [%s]", node_ip,Network_Head->node_base_ip);
+	if (DoesNodeExist(node_ip, Network_Head) == FALSE) {
+		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): Need to add node with ip :[%s] to network map with base ip : [%s]", node_ip,Network_Head->node_base_ip);
 
-	MemberInNetwork * temp = (MemberInNetwork*)malloc(sizeof(MemberInNetwork));
-	temp->NextNode = NULL;
-	temp->cur_node_distance = 1;
-	temp->node_ip = (char*)malloc(16*sizeof(char));
-	temp->SubNetwork = (NetworkMap*)malloc(sizeof(NetworkMap));
-	if (temp->SubNetwork == NULL)
-	{
-		free(temp->node_ip);
-		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): FAILURE TO ALLOCATE SUBNETWORK");
-		return 0;
-	}
-	temp->SubNetwork->FirstMember = NULL;
-	temp->SubNetwork->LastNetworkMember = NULL;
-	strcpy(temp->SubNetwork->node_base_ip,node_ip);
-	temp->SubNetwork->num_of_nodes = 0;
-	strcpy(temp->node_ip,node_ip);
+		MemberInNetwork * temp = (MemberInNetwork*)malloc(sizeof(MemberInNetwork));
+		temp->NextNode = NULL;
+		temp->cur_node_distance = 1;
+		temp->node_ip = (char*)malloc(16*sizeof(char));
+		temp->SubNetwork = (NetworkMap*)malloc(sizeof(NetworkMap));
+		if (temp->SubNetwork == NULL)
+		{
+			free(temp->node_ip);
+			__android_log_write(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): FAILURE TO ALLOCATE SUBNETWORK");
+			return 0;
+		}
+		temp->SubNetwork->FirstMember = NULL;
+		temp->SubNetwork->LastNetworkMember = NULL;
+		strcpy(temp->SubNetwork->node_base_ip,node_ip);
+		temp->SubNetwork->num_of_nodes = 0;
+		strcpy(temp->node_ip,node_ip);
 
-	Network_Head->num_of_nodes += 1;
-	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): Network of base ip [%s] has [%d] nodes ",Network_Head->node_base_ip, Network_Head->num_of_nodes);
-	if (Network_Head->num_of_nodes == 1){
-		temp->PrevNode=NULL;
-		Network_Head->FirstMember = temp;
+		Network_Head->num_of_nodes += 1;
+		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): Network of base ip [%s] has [%d] nodes ",Network_Head->node_base_ip, Network_Head->num_of_nodes);
+		if (Network_Head->num_of_nodes == 1){
+			temp->PrevNode=NULL;
+			Network_Head->FirstMember = temp;
+		}
+		else{
+			Network_Head->LastNetworkMember->NextNode = temp;
+			temp->PrevNode = Network_Head->LastNetworkMember;
+		}
+		Network_Head->LastNetworkMember = temp;
+		/*
+		 * add subnetwork .
+		 * allocate memory
+		 * run over buf and get IPs
+		 * call AddToNetworkMap
+		 */
+	//	tempGlobal++;
+	//	if (tempGlobal < 2)
+	//		CheckNodeExistence("192.168.2.222",NULL,temp->SubNetwork,NEIGHBOUR_OF_NEIGHBOUR);
+		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): Success.");
+	} else {
+		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): Node with ip :[%s] already exists in this level.", node_ip);
 	}
-	else{
-		Network_Head->LastNetworkMember->NextNode = temp;
-		temp->PrevNode = Network_Head->LastNetworkMember;
-	}
-	Network_Head->LastNetworkMember = temp;
-	/*
-	 * add subnetwork .
-	 * allocate memory
-	 * run over buf and get IPs
-	 * call AddToNetworkMap
-	 */
-//	tempGlobal++;
-//	if (tempGlobal < 2)
-//		CheckNodeExistence("192.168.2.222",NULL,temp->SubNetwork,NEIGHBOUR_OF_NEIGHBOUR);
-	__android_log_write(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): Success.");
 	return 0;
 
 }
@@ -222,38 +245,28 @@ int RemoveFromNetworkMap(MemberInNetwork * member_to_remove){
 // */
 //// TODO: Need to check closeness of the node and perhaps change it, need to add DEBUG method.
 //// TODO: check mem allocations
-//int CheckNodeExistence(struct sockaddr_in cli_addr,char* buf){
-//
-//	int i;
-//	int retVal = -1;
-//	char node_ip[16];
-//
-//	MemberInNetwork * temp = MyNetworkMap->FirstMember;
-//
-//	//extract node-ip
-//	strcpy(node_ip,inet_ntoa(cli_addr.sin_addr));
-//
-//	//check if exists in the network map
-//	while(temp!=NULL){
-//		if(strcmp(temp->node_ip,node_ip)==0){
-//			//node was found in the network map
-//			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","The node with ip :[%s] is already in the network map", node_ip);
-//			return 0;
-//		}
-//		else{
-//			//this node still isn't the node we received
-//			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","Current node : [%s] is not the node we want to look for [%s]", temp->node_ip,node_ip);
-//			temp = temp->NextNode;
-//		}
-//	}
-//
-//	//add node to network map.
-//	retVal = AddToNetworkMap(node_ip,DIRECT_NEIGHBOUR);
-//
-//
-//	return retVal;
-//
-//}
+int DoesNodeExist(char* ip_to_check, NetworkMap* Network_to_check){
+
+	int i;
+	int retVal = FALSE;
+
+	MemberInNetwork * temp = Network_to_check->FirstMember;
+
+	//check if exists in the network map
+	while(temp!=NULL){
+		if(strcmp(temp->node_ip,ip_to_check) == STR_EQUAL){
+			//node was found in the network map
+			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","The node with ip :[%s] is already in the network map", ip_to_check);
+			return TRUE;
+		}
+		else{
+			//this node still isn't the node we received
+			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","Current node : [%s] is not the node we want to look for [%s]", temp->node_ip,ip_to_check);
+			temp = temp->NextNode;
+		}
+	}
+	return FALSE;
+}
 
 /*
  * GetNode - gets node from the network map. return the node or NULL if not found
@@ -295,9 +308,6 @@ MemberInNetwork* GetNode(char* node_ip_to_check, NetworkMap * Network_Head,int m
 		}
 	}
 
-	//add node to network map.
-	//retVal = AddToNetworkMap(node_ip_to_check,distance_to_add,buf,Network_Head);
-
 	__android_log_write(ANDROID_LOG_INFO,"NetworkMap","CheckNodeExistence(): Node was not found in the network");
 	return  temp;
 
@@ -336,6 +346,7 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
 		return (*env)->NewStringUTF(env,"Failed to set setsockopt()");
 	}
 
+
 	////////////////
 	/// send
 	////////////////
@@ -351,7 +362,21 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
 		return (*env)->NewStringUTF(env,"Cannot decode IP address");
 	}
 
-	int retval = sendto(sock_fd, send_buf, strlen(send_buf), 0, (struct sockaddr*)&servaddr, sizeof(servaddr));
+	char* hello_message_string;
+	int retval;
+
+	if (strcmp(send_buf, "HELLO_MSG:")==0) {
+		hello_message_string = (char*)malloc(sizeof(char)*HELLO_MSG_LEN);
+		strcpy(hello_message_string,"HELLO_MSG:");
+		strcat(hello_message_string,MyNetworkMap->node_base_ip);
+		strcat(hello_message_string,"(");
+		GenerateHelloMsg(hello_message_string,MyNetworkMap);
+		strcat(hello_message_string,")");
+		retval = sendto(sock_fd, hello_message_string, strlen(hello_message_string), 0, (struct sockaddr*)&servaddr, sizeof(servaddr));
+		free(hello_message_string);
+	} else {
+		retval = sendto(sock_fd, send_buf, strlen(send_buf), 0, (struct sockaddr*)&servaddr, sizeof(servaddr));
+	}
 
 	char str[100];
 	if ( retval < 0) {
@@ -406,9 +431,9 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 		return (*env1)->NewStringUTF(env1, "errRecv");
 //	//check if hello message - try to update network map if it isn't my own broadcast
 	//if ((strstr(buf,HELLO_MSG)!=NULL) && (strstr(buf,MyNetworkMap->node_base_ip)==NULL))
-	if (strstr(buf,HELLO_MSG)!=NULL && strcmp(inet_ntoa(cli_addr.sin_addr),MyNetworkMap->node_base_ip)!=0)
+	if (strstr(buf,HELLO_MSG)!=NULL && strcmp(inet_ntoa(cli_addr.sin_addr),MyNetworkMap->node_base_ip)!=0) // TODO: Check if the network pointer is correct
 	{
-		ProcessHelloMsg(strpbrk(buf,":")+1);
+		ProcessHelloMsg(strpbrk(buf,":")+1,strlen(strpbrk(buf,":")+1),MyNetworkMap);
 //		CheckNodeExistence(inet_ntoa(cli_addr.sin_addr),buf,MyNetworkMap,DIRECT_NEIGHBOUR);
 	}
 
@@ -420,24 +445,6 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 
 }
 
-//NetworkMap* GetNodeSubNetwork(NetworkMap* ParentNetwork,char* ip_to_look_for)
-//{
-//
-//	MemberInNetwork* temp = ParentNetwork->FirstMember;
-//	while(temp != NULL)
-//	{
-//		if (strcmp(temp->node_ip,ip_to_look_for)==0)
-//			__android_log_print(ANDROID_LOG_INFO, "ProcessHelloMsg()", "GetNodeSubNetwork() : node was found, subnetwork returned");
-//			return temp->SubNetwork;
-//		else {
-//			temp=temp->NextNode;
-//		}
-//	}
-//	__android_log_print(ANDROID_LOG_INFO, "ProcessHelloMsg()", "GetNodeSubNetwork() : could not find node");
-//	return NULL;
-//
-//}
-
 int ProcessHelloMsg(char* buf,int buf_length,NetworkMap* network_to_add_to) {
 
 	int i=-1;
@@ -446,7 +453,7 @@ int ProcessHelloMsg(char* buf,int buf_length,NetworkMap* network_to_add_to) {
 	int cnt=-1;
 	int retVal;
 	char* ip_to_add = (char*)malloc(sizeof(char)*30);
-
+	int dont_add_sons = FALSE;
 
 	__android_log_print(ANDROID_LOG_INFO, "ProcessHelloMsg()",  "String:<%s>:%d",buf,buf_length);
 	while (i++<buf_length) {
@@ -459,16 +466,22 @@ int ProcessHelloMsg(char* buf,int buf_length,NetworkMap* network_to_add_to) {
 				cnt=0;						//Init count
 				ip_to_add[i] = '\0';
 				__android_log_print(ANDROID_LOG_INFO, "ProcessHelloMsg()",  "Ip_to_add : [%s] calling add to network",ip_to_add);
-				retVal = AddToNetworkMap(ip_to_add,network_to_add_to);
-
+				if (strcmp(ip_to_add,MyNetworkMap->node_base_ip) == 0) {
+					__android_log_write(ANDROID_LOG_INFO, "ProcessHelloMsg()",  "~~DETECTED ATTEMP TO ADD SELF~~");
+					dont_add_sons = TRUE;
+				} else {
+					retVal = AddToNetworkMap(ip_to_add,network_to_add_to);
+				}
 			}
 			cnt++;							//Each '(' increases count which can only be decreased by ')'
 		}
 		if (buf[i]==')') {
 			if (--cnt == 0) {			//Decrease count, if its 0 it means that the first '(' was met by its respective ')'
 				end_index=i-1;			// in this case we are at the end index
+				if (dont_add_sons != TRUE) {
+					ProcessHelloMsg(buf+start_index, (end_index-start_index+1),GetNode(ip_to_add,network_to_add_to,1)->SubNetwork);   //GetNodeSubNetwork(network_to_add_to,ip_to_add));
+				}
 
-				ProcessHelloMsg(buf+start_index, (end_index-start_index+1),GetNode(ip_to_add,network_to_add_to,1)->SubNetwork);   //GetNodeSubNetwork(network_to_add_to,ip_to_add));
 				if (i<buf_length-1) {
 					ProcessHelloMsg(buf+i+1, buf_length-(i+1),network_to_add_to);
 				}
