@@ -17,6 +17,8 @@ import android.util.Log;
 
 public class Routing{
 	public native int InitializeMap( String ip_to_set );	
+	public native String RefreshNetworkMapJNI();
+	
     static {
         System.loadLibrary("adhoc-jni");
     }
@@ -28,7 +30,7 @@ public class Routing{
 	private WifiManager mWifi;
 	private String BROADCAST_IP = "192.168.2.255";
 	private InetAddress InetBroadcastAddress = null;
-	private long time_between_ip_broadcasts = 1000; //ms
+	private long time_between_ip_broadcasts = 5000; //ms
 	private boolean use_ndk = true;
 	private SenderUDP senderUDP;
 	
@@ -88,6 +90,7 @@ public class Routing{
         	while(true)
         	{
         		updateIpCounter();
+        		RefreshNetworkMapJNI();
         		
         		if (use_ndk) {
 	        		try {

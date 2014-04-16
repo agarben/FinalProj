@@ -56,11 +56,13 @@ static const char HELLO_MSG[] = "HELLO_MSG:";
 ////SINGLE NODE
 typedef struct MemberInNetwork {
 	int cur_node_distance;
-//	int time_stamp; TODO: Make this part of the C struct
 	char* node_ip;
 	struct MemberInNetwork * NextNode;
 	struct MemberInNetwork * PrevNode;
 	struct NetworkMap * SubNetwork;
+	int CountdownTimer;
+
+	int instance_count; // only used for the AllNetworkMembersList
 	//need to add more parameters such as last received etc
 } MemberInNetwork;
 
@@ -74,23 +76,45 @@ typedef struct NetworkMap {
 
 NetworkMap* MyNetworkMap;
 NetworkMap* AllNetworkMembersList;
-int tempGlobal;
+
+/*
+ *  FUNCTION DECLARATIONS
+ */
+void GenerateHelloMsg(char* base_string, NetworkMap* network_head);
+jint Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1, jobject thiz,jstring ip_to_init);
+MemberInNetwork* GetNode(char* node_ip_to_check, NetworkMap * Network_Head,int maximum_distance_from_originator);
+int UpdateNodeTimer(MemberInNetwork* Node_to_update, int Countdown);
+int AddToNetworkMap(char* node_ip,NetworkMap * Network_Head);
+int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* member_to_remove, int network_is_members_list);
+int DoesNodeExist(char* ip_to_check, NetworkMap* Network_to_check);
+jstring Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env, jobject thiz, jstring ip,jint port, jstring message, jint is_broadcast);
+jstring Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz);
+int ProcessHelloMsg(char* buf,int buf_length,NetworkMap* network_to_add_to);
+jstring Java_com_example_adhocktest_Routing_RefreshNetworkMapJNI(JNIEnv* env1, jobject thiz);
+void RefreshNetworkMap(NetworkMap* network_to_refresh);
+MemberInNetwork* GetNextHop(MemberInNetwork* final_destination);
 
 
-
-
+/*
+ * FUNCTION IMPLEMENTATION
+ */
 void GenerateHelloMsg(char* base_string, NetworkMap* network_head) {
 
-	MemberInNetwork* temp = network_head->FirstMember;
-	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","The String so far is [%s]",base_string);
-	while (temp!=NULL) {
-		strcat(base_string,temp->node_ip);
-		strcat(base_string,"(");
-		GenerateHelloMsg(base_string, temp->SubNetwork);
-		strcat(base_string,")");
-		temp = temp->NextNode;
+
+	if (network_head != NULL) {
+		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","GenerateHelloMessage(): base_ip [%s] base_str [%s]",network_head->node_base_ip, base_string);
+		MemberInNetwork* temp = network_head->FirstMember;
+		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","GenerateHelloMessage(): The String so far is [%s]",base_string);
+		while (temp!=NULL) {
+			strcat(base_string,temp->node_ip);
+			strcat(base_string,"(");
+			GenerateHelloMsg(base_string, temp->SubNetwork);
+			strcat(base_string,")");
+			temp = temp->NextNode;
+		}
 	}
 }
+
 
 /*
  * InitializeMap.
@@ -99,7 +123,6 @@ jint
 Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1,
         jobject thiz,jstring ip_to_init){
 
-	char* buffer = "gal(ben(lior()))leslie(dudu())";
 
 	MyNetworkMap = (NetworkMap*)malloc(sizeof(NetworkMap));
 	if (MyNetworkMap==NULL){
@@ -115,28 +138,81 @@ Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1,
 	AllNetworkMembersList = (NetworkMap*)malloc(sizeof(NetworkMap));
 	if (AllNetworkMembersList==NULL){
 			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","InitializeMap(): failed. could not allocate memory for AllNetworkMembersList");
+			free(MyNetworkMap);
 			return -1;
 	}
 	//no allocation for base ip
+	strcpy(AllNetworkMembersList->node_base_ip,"AllMembersList");
 	AllNetworkMembersList->num_of_nodes=0;
 	AllNetworkMembersList->FirstMember=NULL;
 	AllNetworkMembersList->LastNetworkMember=NULL;
 
+
 	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","InitializeMap(): completed successfully. My IP : [%s]", MyNetworkMap->node_base_ip);
 
 	return 0;
+}
 
+/*
+ * GetNode - gets node from the network map. return the node or NULL if not found
+ */
+// TODO: Need to check closeness of the node and perhaps change it, need to add DEBUG method.
+// TODO: check mem allocations
+MemberInNetwork* GetNode(char* node_ip_to_check, NetworkMap * Network_Head,int maximum_distance_from_originator){
+
+	int i;
+
+	MemberInNetwork * temp = Network_Head->FirstMember;
+	MemberInNetwork * temp_in_subnetwork;
+
+	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","GetNode(): Check if [%s] has [%s] in the network map", Network_Head->node_base_ip,node_ip_to_check);
+
+	if(maximum_distance_from_originator==0){
+		__android_log_write(ANDROID_LOG_INFO,"NetworkMap","GetNode(): maximum distance allowed reached 0. returning");
+		return NULL;
+	}
+
+	//check if exists in the network map
+	while(temp!=NULL){
+		if(strcmp(temp->node_ip,node_ip_to_check)==0){
+			//node was found in the network map
+			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","GetNode(): The node with ip :[%s] was already in the network map [%s]", node_ip_to_check, Network_Head->node_base_ip);
+			return temp;
+		}
+		else{
+			//this node still isn't the node we received
+			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","GetNode(): Current node : [%s] is not the node we want to look for [%s]. checking subnetwork", temp->node_ip,node_ip_to_check);
+			temp_in_subnetwork = GetNode(node_ip_to_check,temp->SubNetwork,maximum_distance_from_originator-1);
+			if (temp_in_subnetwork != NULL)
+			{
+				__android_log_write(ANDROID_LOG_INFO,"NetworkMap","GetNode(): Node was found in the subnetwork network");
+				return temp_in_subnetwork;
+			}
+			temp = temp->NextNode;
+		}
+	}
+
+	__android_log_write(ANDROID_LOG_INFO,"NetworkMap","GetNode(): Node was not found in the network");
+	return temp;
+
+}
+
+int UpdateNodeTimer(MemberInNetwork* Node_to_update, int Countdown) {
+	Node_to_update->CountdownTimer = Countdown;
+	return Node_to_update->CountdownTimer;
 }
 
 /*
  * AddToNetworkMap : receive node_ip, node_type - add the data to the network map
  */
-int AddToNetworkMap(char* node_ip,NetworkMap * Network_Head){
+int AddToNetworkMap(char* node_ip, NetworkMap * Network_Head){
 
-	if (DoesNodeExist(node_ip, Network_Head) == FALSE) {
+	MemberInNetwork* temp = GetNode(node_ip, Network_Head, 1);
+	MemberInNetwork* temp_for_network_list;
+	if (temp == NULL) {
 		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): Need to add node with ip :[%s] to network map with base ip : [%s]", node_ip,Network_Head->node_base_ip);
-
-		MemberInNetwork * temp = (MemberInNetwork*)malloc(sizeof(MemberInNetwork));
+		temp = (MemberInNetwork*)malloc(sizeof(MemberInNetwork));
+		temp->instance_count++;
 		temp->NextNode = NULL;
 		temp->cur_node_distance = 1;
 		temp->node_ip = (char*)malloc(16*sizeof(char));
@@ -164,43 +240,56 @@ int AddToNetworkMap(char* node_ip,NetworkMap * Network_Head){
 			temp->PrevNode = Network_Head->LastNetworkMember;
 		}
 		Network_Head->LastNetworkMember = temp;
-		/*
-		 * add subnetwork .
-		 * allocate memory
-		 * run over buf and get IPs
-		 * call AddToNetworkMap
-		 */
-	//	tempGlobal++;
-	//	if (tempGlobal < 2)
-	//		CheckNodeExistence("192.168.2.222",NULL,temp->SubNetwork,NEIGHBOUR_OF_NEIGHBOUR);
-		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): Success.");
+		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): Successfully added [%s] to network.",node_ip);
+
 	} else {
 		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): Node with ip :[%s] already exists in this level.", node_ip);
 	}
+	UpdateNodeTimer(temp,3);
 	return 0;
-
 }
-
-
-
 
 /*
  * RemoveFromNetworkMap : receive MemberInNetwork to remove
  */
-int RemoveFromNetworkMap(MemberInNetwork * member_to_remove){
+int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* member_to_remove, int network_is_members_list){
 
+	// TODO: Check this function
 	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Received a request to remove node: [%s]", member_to_remove->node_ip);
 
-	//check if there is only one member in network
-	if (MyNetworkMap->FirstMember == MyNetworkMap->LastNetworkMember){
+	// 3. remove ip from network and free memory
+
+
+	__android_log_print(ANDROID_LOG_INFO, "Debug","Debug BUG#1: Entering RemoveFromNetwork() - base_ip [%s] member to remove [%s]", network_to_remove_from->node_base_ip, member_to_remove->node_ip);
+
+	__android_log_print(ANDROID_LOG_INFO, "Debug","Debug BUG#1: STAGE 1");
+
+	__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): There is only one node in the network (first = last)");
+	MemberInNetwork* son_to_remove = member_to_remove->SubNetwork->FirstMember; // remove all sons of member_to_remove before deleting the member itself
+	MemberInNetwork* temp_member;
+	while (son_to_remove != NULL) {
+		__android_log_print(ANDROID_LOG_INFO, "Debug","Debug BUG#1: son to remove [%s]", son_to_remove->node_ip);
+		temp_member = son_to_remove->NextNode;
+		RemoveFromNetworkMap(member_to_remove->SubNetwork,son_to_remove,FALSE);
+		son_to_remove = temp_member;
+		if (son_to_remove == NULL) {
+			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Removed all sons of [%s]", member_to_remove->node_ip);
+		} else {
+			son_to_remove->PrevNode = NULL; // pref is null but first in sub isn't touched anymore, [ not important ]
+		}
+	}
+
+//	NEXT HOP   FINAL DEST     OTHER HEADER SHIT
+//    IP1      | IP2         |       rsrvd         |   MESSAGE
+
+	__android_log_write(ANDROID_LOG_INFO, "Debug","Debug BUG#1: STAGE 2");
+	// After all sons have been deleted, remove member_to_remove
+	if ((network_to_remove_from->FirstMember == network_to_remove_from->LastNetworkMember) && network_to_remove_from->FirstMember!=NULL){
 
 		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): There is only one node in the network (first = last)");
 
-		MyNetworkMap->FirstMember = NULL;
-		MyNetworkMap->LastNetworkMember = NULL;
-		free(member_to_remove->node_ip);
-		free(member_to_remove);
-
+		network_to_remove_from->FirstMember = NULL;
+		network_to_remove_from->LastNetworkMember = NULL;
 	}
 	else{
 		/*
@@ -209,17 +298,17 @@ int RemoveFromNetworkMap(MemberInNetwork * member_to_remove){
 		 * last : point LastMember to one before current last
 		 * default : link previous and next nodes of the current node
 		 */
-		if (member_to_remove == MyNetworkMap->LastNetworkMember){
+		if (member_to_remove == network_to_remove_from->LastNetworkMember){
 
 			member_to_remove->PrevNode->NextNode = NULL;
-			MyNetworkMap->LastNetworkMember = member_to_remove->PrevNode;
-			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Removing LastNetworkMember.New LastNetworkMember is: [%s]", MyNetworkMap->LastNetworkMember->node_ip);
+			network_to_remove_from->LastNetworkMember = member_to_remove->PrevNode;
+			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Removing LastNetworkMember.New LastNetworkMember is: [%s]", network_to_remove_from->LastNetworkMember->node_ip);
 		}
 		else{
-			if (member_to_remove == MyNetworkMap->FirstMember){
+			if (member_to_remove == network_to_remove_from->FirstMember){
 				member_to_remove->NextNode->PrevNode = NULL;
-				MyNetworkMap->FirstMember = member_to_remove->NextNode;
-				__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Removing FirstMember. New FirstMember is: [%s]", MyNetworkMap->FirstMember->node_ip);
+				network_to_remove_from->FirstMember = member_to_remove->NextNode;
+				__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Removing FirstMember. New FirstMember is: [%s]", network_to_remove_from->FirstMember->node_ip);
 			}
 			else{
 
@@ -230,15 +319,33 @@ int RemoveFromNetworkMap(MemberInNetwork * member_to_remove){
 
 		}
 
-		free(member_to_remove->node_ip);
-		free(member_to_remove);
 	}
+	__android_log_write(ANDROID_LOG_INFO, "Debug","Debug BUG#1: STAGE 3");
+	network_to_remove_from->num_of_nodes -= 1;
+	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Removing member [%s] successfully from the network of [%s]. New amount of nodes [%d]", member_to_remove->node_ip,network_to_remove_from->node_base_ip,network_to_remove_from->num_of_nodes);
 
-	MyNetworkMap->num_of_nodes -= 1;
+	if (network_is_members_list == FALSE) {
+		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Entered first condition");
+		temp_member = GetNode(member_to_remove->node_ip, AllNetworkMembersList, 1);
+		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Entered second condition");
+		if (temp_member != NULL){;
+		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Entered third condition");
+		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): AllNetworkMembersList->[%s] instance_count=[%d] ",temp_member->node_ip, temp_member->instance_count);
+			if (--temp_member->instance_count == 0) { // One less instance of node_ip exists in the network now.
+				__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Going to remove [%s] from AllNetworkMembersList",temp_member->node_ip);
+				RemoveFromNetworkMap(AllNetworkMembersList,temp_member,TRUE);
+			}
+		}
+	}
+	__android_log_write(ANDROID_LOG_INFO, "Debug","Debug BUG#1: STAGE 4");
+	free(member_to_remove->node_ip);
+	free(member_to_remove->SubNetwork);
+	free(member_to_remove);
+
+	__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Ended naturally");
 	return 0;
 
 }
-
 
 ///*
 // * CheckNodeExistence - checks if node exists in the network map, if it doesn't - adds it
@@ -268,58 +375,12 @@ int DoesNodeExist(char* ip_to_check, NetworkMap* Network_to_check){
 	return FALSE;
 }
 
-/*
- * GetNode - gets node from the network map. return the node or NULL if not found
- */
-// TODO: Need to check closeness of the node and perhaps change it, need to add DEBUG method.
-// TODO: check mem allocations
-MemberInNetwork* GetNode(char* node_ip_to_check, NetworkMap * Network_Head,int maximum_distance_from_originator){
-
-	int i;
-
-
-	MemberInNetwork * temp = Network_Head->FirstMember;
-	MemberInNetwork * temp_in_subnetwork;
-
-	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","CheckNodeExistence(): Check if [%s] has [%s] in the network map", Network_Head->node_base_ip,node_ip_to_check);
-
-	if(maximum_distance_from_originator==0){
-		__android_log_write(ANDROID_LOG_INFO,"NetworkMap","CheckNodeExistence(): maximum distance allowed reached 0. returning");
-		return NULL;
-	}
-
-	//check if exists in the network map
-	while(temp!=NULL){
-		if(strcmp(temp->node_ip,node_ip_to_check)==0){
-			//node was found in the network map
-			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","CheckNodeExistence(): The node with ip :[%s] was already in the network map", node_ip_to_check);
-			return temp;
-		}
-		else{
-			//this node still isn't the node we received
-			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","CheckNodeExistence(): Current node : [%s] is not the node we want to look for [%s]. checking subnetwork", temp->node_ip,node_ip_to_check);
-			temp_in_subnetwork = GetNode(node_ip_to_check,temp->SubNetwork,maximum_distance_from_originator-1);
-			if (temp_in_subnetwork != NULL)
-			{
-				__android_log_write(ANDROID_LOG_INFO,"NetworkMap","CheckNodeExistence(): Node was found in the subnetwork network");
-				return temp_in_subnetwork;
-			}
-			temp = temp->NextNode;
-		}
-	}
-
-	__android_log_write(ANDROID_LOG_INFO,"NetworkMap","CheckNodeExistence(): Node was not found in the network");
-	return  temp;
-
-}
-
-
-
-
 jstring
 Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
                                                   jobject thiz, jstring ip,jint port, jstring message, jint is_broadcast)
 {
+	// TODO: Consider un-commenting all free(send_buf) in this function
+
 	int sock_fd;
 	static int hey = 0;
 	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): HEY %d",hey++);
@@ -397,9 +458,10 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
         jobject thiz)
 {
 	int PORT = 8888;
-	int BUFLEN = 512;
+	int BUFLEN = 5120;
 	int retVal=-1;
 
+	__android_log_write(ANDROID_LOG_INFO, "RecvUdpJNI()",  "Entering RecvUdpJNI"); // TODO: Remove
 
 	struct sockaddr_in my_addr, cli_addr;
 	int sockfd, i;
@@ -426,21 +488,29 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 		return (*env1)->NewStringUTF(env1, "bind");
 	}
 
+	__android_log_write(ANDROID_LOG_INFO, "RecvUdpJNI()",  "Trying to receive"); // TODO: Remove
 	//try to receive
-	if (recvfrom(sockfd, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen)==-1)
+	sleep(2);
+	__android_log_write(ANDROID_LOG_INFO, "RecvUdpJNI()",  "Trying to receive2"); // TODO: Remove
+	if (recvfrom(sockfd, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen)==-1) {
+
+		__android_log_print(ANDROID_LOG_INFO, "RecvUdpJNI()",  "Error received, buf= [%s]",buf); // TODO: Remove
 		return (*env1)->NewStringUTF(env1, "errRecv");
-//	//check if hello message - try to update network map if it isn't my own broadcast
-	//if ((strstr(buf,HELLO_MSG)!=NULL) && (strstr(buf,MyNetworkMap->node_base_ip)==NULL))
+	}
+	__android_log_print(ANDROID_LOG_INFO, "RecvUdpJNI()",  "Done with recvfrom"); // TODO: Remove
+
 	if (strstr(buf,HELLO_MSG)!=NULL && strcmp(inet_ntoa(cli_addr.sin_addr),MyNetworkMap->node_base_ip)!=0) // TODO: Check if the network pointer is correct
 	{
+		__android_log_print(ANDROID_LOG_INFO, "RecvUdpJNI()",  "Going to process hello msg"); // TODO: Remove
 		ProcessHelloMsg(strpbrk(buf,":")+1,strlen(strpbrk(buf,":")+1),MyNetworkMap);
-//		CheckNodeExistence(inet_ntoa(cli_addr.sin_addr),buf,MyNetworkMap,DIRECT_NEIGHBOUR);
+		__android_log_print(ANDROID_LOG_INFO, "RecvUdpJNI()",  "Done processing hello msg"); // TODO: Remove
 	}
 
 	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Raw string: <%s>",buf);
 	//if received successfully , close socket
 	close(sockfd);
 
+	__android_log_write(ANDROID_LOG_INFO, "RecvUdpJNI()",  "Returning for RecvUdpJNI()"); // TODO: Remove
 	return (*env1)->NewStringUTF(env1, buf); // only return the MSG part
 
 }
@@ -471,6 +541,14 @@ int ProcessHelloMsg(char* buf,int buf_length,NetworkMap* network_to_add_to) {
 					dont_add_sons = TRUE;
 				} else {
 					retVal = AddToNetworkMap(ip_to_add,network_to_add_to);
+					if (retVal != 0) {
+						//print ERROR log
+					}
+					__android_log_print(ANDROID_LOG_INFO, "ProcessHelloMsg()",  "AllNetworkMembersList->base_ip = [%s]",AllNetworkMembersList->node_base_ip);
+					retVal = AddToNetworkMap(ip_to_add,AllNetworkMembersList); // Here we only add the ip as the member of the general list of network members.
+					if (retVal != 0) {
+						//print ERROR log
+					}
 				}
 			}
 			cnt++;							//Each '(' increases count which can only be decreased by ')'
@@ -492,8 +570,43 @@ int ProcessHelloMsg(char* buf,int buf_length,NetworkMap* network_to_add_to) {
 	//TODO: Free memory
 }
 
+/*
+ * InitializeMap.
+ */
+jstring
+Java_com_example_adhocktest_Routing_RefreshNetworkMapJNI(JNIEnv* env1, jobject thiz){
 
+	RefreshNetworkMap(MyNetworkMap);
 
+	MemberInNetwork* temp_node = AllNetworkMembersList->FirstMember;
+	char* network_list_str = (char*)malloc(sizeof(char)*HELLO_MSG_LEN);
+	strcpy(network_list_str , "List:");
+	GenerateHelloMsg(network_list_str,AllNetworkMembersList);
+	__android_log_print(ANDROID_LOG_INFO, "RefreshNetworkMapJNI","AllMembersList is currently [%s]",network_list_str);
+
+	return (*env1)->NewStringUTF(env1, network_list_str);
+}
+
+void RefreshNetworkMap(NetworkMap* network_to_refresh) {
+
+	MemberInNetwork* son_to_refresh = network_to_refresh->FirstMember;
+	MemberInNetwork* temp_network_member;
+	while (son_to_refresh != NULL) {
+		if (son_to_refresh->CountdownTimer > 0) {
+			UpdateNodeTimer(son_to_refresh, (son_to_refresh->CountdownTimer-1));
+
+			__android_log_print(ANDROID_LOG_INFO, "RefreshNetworkMap","Network [%s] member [%s] countdown=[%d]",network_to_refresh->node_base_ip,son_to_refresh->node_ip,son_to_refresh->CountdownTimer);
+			RefreshNetworkMap(son_to_refresh->SubNetwork);
+			son_to_refresh = son_to_refresh->NextNode;
+		} else {
+			__android_log_print(ANDROID_LOG_INFO, "RefreshNetworkMap","Network [%s] member [%s] countdown=[%d] - REMOVE",network_to_refresh->node_base_ip,son_to_refresh->node_ip,son_to_refresh->CountdownTimer);
+			temp_network_member = son_to_refresh;
+			son_to_refresh = son_to_refresh->NextNode;
+			RemoveFromNetworkMap(network_to_refresh, temp_network_member,FALSE);
+			__android_log_print(ANDROID_LOG_INFO, "Debug","Debug BUG#1: Done removing from network"); // TODO : Delete
+		}
+	}
+}
 
 
 
