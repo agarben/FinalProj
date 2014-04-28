@@ -9,7 +9,7 @@ import android.util.Log;
 
 public class SenderUDP {
 
-	public native String  SendUdpJNI( String ip, int port, String message, int is_broadcast);		
+	public native String  SendUdpJNI( String ip, int port, String j_message, int is_broadcast);		
     static {
         System.loadLibrary("adhoc-jni");
     }

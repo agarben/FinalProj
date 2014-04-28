@@ -72,8 +72,10 @@ public class ReceiverUDP extends Thread{
 			            	if (rx_str.startsWith("HELLO_FROM<") == true) {
 			            		_routing.processHello(rx_str);
 			            	} else {
-			            		tx_RX.clearComposingText();
-			            		tx_RX.setText( rx_str );
+			            		if(!rx_str.startsWith("ignore")){
+				            		tx_RX.clearComposingText();
+				            		tx_RX.setText( rx_str );
+			            		}
 			            		
 			            	}
 			            }});

@@ -190,6 +190,12 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	public void initIpSpinner() {
 		ip_array = new ArrayList<String>();
 		ip_array.add("192.168.2.255");
+		ip_array.add("0.0.0.255");
+		ip_array.add("255.255.255.255");
+		ip_array.add("192.168.2.207");
+		ip_array.add("192.168.2.22"); 
+		ip_array.add("192.168.2.96");
+		ip_array.add("192.168.2.33");
 		adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, ip_array);
 		ip_spinner = (Spinner) findViewById(R.id.spinner_select_ip);
 		ip_spinner.setAdapter(adapter);
