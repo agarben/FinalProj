@@ -472,7 +472,6 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 
 	int retval;
 	char send_buf[500];
-	char return_str[500];
 	static int msg_index = 0;
 	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): Message is [%s]", message);
 
@@ -482,7 +481,7 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 	int sock_fd;
 	struct sockaddr_in servaddr;
 	if (( sock_fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
-		sprintf(return_str, "Cannot create socket");
+		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI(): Cannot create socket");
 		exit(-1);
 	}
 
@@ -492,7 +491,7 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 	int ret=setsockopt(sock_fd, SOL_SOCKET, SO_BROADCAST, &is_broadcast, sizeof(is_broadcast));
 	if (ret) {
 		close(sock_fd);
-		sprintf(return_str, "Failed to set setsockopt()");
+		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI(): Failed to set setsockopt()");
 		exit(-1);
 	}
 
@@ -503,7 +502,7 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 	if ((inet_aton(_ip,&servaddr.sin_addr)) == 0) {
 //		free(send_buf);
 		close(sock_fd);
-		sprintf(return_str, "Cannot decode IP address");
+		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI():Cannot decode IP address");
 		exit(-1);
 	}
 	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): s_addr before = %X",servaddr.sin_addr.s_addr ); // TODO: Delete
@@ -515,24 +514,39 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 	////////////////
 	/// send
 	////////////////
-	strcpy(send_buf,_ip);
-	strcat(send_buf,"|");
-	strcat(send_buf,_ip);
-	strcat(send_buf,"XOR{");
-	strcat(send_buf,_ip);
-	strcat(send_buf,"-");
-	sprintf(strstr(send_buf,"-"),"-%d",msg_index++);
-	strcat(send_buf,"}");
-	strcat(send_buf,message);
+	char hello_message_string[HELLO_MSG_LEN];
 
-	retval = sendto(sock_fd, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr, sizeof(servaddr));
-	if (retval<0) {
-			sprintf(return_str, "sendto failed with %d. send_buf was [%s]", errno,send_buf);
+	if (strcmp(message, "HELLO_MSG:")==0) {
+		strcpy(hello_message_string,"HELLO_MSG:");
+		strcat(hello_message_string,MyNetworkMap->node_base_ip);
+		strcat(hello_message_string,"(");
+		GenerateHelloMsg(hello_message_string,MyNetworkMap);
+		strcat(hello_message_string,")");
+
+		retval = sendto(sock_fd, hello_message_string, strlen(hello_message_string), 0, (struct sockaddr*)&servaddr, sizeof(servaddr));
+		if ( retval < 0) {
+			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto failed with %d. message was [%s]", errno,hello_message_string);
+		} else {
+			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto() Success (retval=%d messge='%s' size=%d ip=%s", retval,hello_message_string,strlen(hello_message_string),_ip);
+		}
 	} else {
-			sprintf(return_str, "sendto() Success (retval=%d send_buf='%s' size=%d ip=%s", retval,send_buf,strlen(send_buf),_ip);
-	}
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): %s", return_str);
+		strcpy(send_buf,_ip);
+		strcat(send_buf,"|");
+		strcat(send_buf,_ip);
+		strcat(send_buf,";XOR{");
+		strcat(send_buf,_ip);
+		strcat(send_buf,"-");
+		sprintf(strstr(send_buf,"-"),"-%d",msg_index++);
+		strcat(send_buf,"}");
+		strcat(send_buf,message);
 
+		retval = sendto(sock_fd, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr, sizeof(servaddr));
+		if ( retval < 0) {
+			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto failed with %d. message was [%s]", errno,send_buf);
+		} else {
+			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto() Success (retval=%d messge='%s' size=%d ip=%s", retval,send_buf,strlen(send_buf),_ip);
+		}
+	}
 
 
 	////////////////////

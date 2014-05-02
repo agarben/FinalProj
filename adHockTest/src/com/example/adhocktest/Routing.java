@@ -95,14 +95,14 @@ public class Routing{
         		if (use_ndk) {
 	        		try {
 						Thread.sleep(time_between_ip_broadcasts);
-//    					senderUDP.sendMsg();
+    					senderUDP.sendMsg();
 					} catch (InterruptedException e1) {
 						// TODO Auto-generated catch block
 						e1.printStackTrace();
 					}
-//    				catch (IOException e){
-//    					e.printStackTrace();
-//    				}
+    				catch (IOException e){
+    					e.printStackTrace();
+    				}
         		} else {
         			
         			try{
