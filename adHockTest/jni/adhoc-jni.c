@@ -499,7 +499,7 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 	struct sockaddr_in servaddr;
 	if (( sock_fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
 		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI(): Cannot create socket");
-		exit(-1);
+		return;
 	}
 
 	/////////////////
@@ -509,7 +509,7 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 	if (ret) {
 		close(sock_fd);
 		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI(): Failed to set setsockopt()");
-		exit(-1);
+		return;
 	}
 
 	memset((char*)&servaddr, 0, sizeof(servaddr));
@@ -520,7 +520,7 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 //		free(send_buf);
 		close(sock_fd);
 		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI():Cannot decode IP address");
-		exit(-1);
+		return;
 	}
 	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): s_addr before = %X",servaddr.sin_addr.s_addr ); // TODO: Delete
 	servaddr.sin_addr.s_addr |= 0xff000000; // always broadcast!
@@ -673,8 +673,10 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): I am the next hop of this message. forwarding [%s]",buf);
 				strstrptr = strstr(buf,";");
 				if (strstrptr == NULL) {
-					__android_log_print(ANDROID_LOG_INFO, "Error",  "RecvUdpJNI(): Did not find ';'");
-					exit(-1);
+					__android_log_print(ANDROID_LOG_INFO, "Error",  "RecvUdpJNI(): Did not find ';', Ignoring message.");
+					free(next_hop_from_header);
+					free(target_from_header);
+					return (*env1)->NewStringUTF(env1, "ignore"); // return ignore
 				}
 
 				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): target_ip extracted before calling SendUdpJNI: <%s>",target_from_header);
@@ -848,30 +850,29 @@ void AddMsgToBuffer(MemberInNetwork* MemberBuffer, const char* msg,int msg_indx,
 	Buffer* search_end;
 
 	temp = (Buffer*)malloc(sizeof(Buffer));
-	temp->target_ip = (char*)malloc(sizeof(char)*20);
 	if (temp==NULL){
 		__android_log_print(ANDROID_LOG_INFO, "Error","AddMsgToBuffer(): Failed to allocate memory for Buffer... ;");
 		return; //TODO : ? :<
 	}
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): kokojamo1"); // TODO: Delete
+	temp->target_ip = (char*)malloc(sizeof(char)*20);
+	if (temp->target_ip==NULL){
+		__android_log_print(ANDROID_LOG_INFO, "Error","AddMsgToBuffer(): Failed to allocate memory for temp->target_ip... ;");
+		free(temp->target_ip);
+		return; //TODO : ? :<
+	}
+
 	strcpy(temp->target_ip,target_ip);
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): kokojamo2"); // TODO: Delete
 	temp->was_broadcast = FALSE;
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): kokojamo3"); // TODO: Delete
 	temp->msg_indx = msg_indx;
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): kokojamo4"); // TODO: Delete
 	temp->next_buf_msg = NULL;
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): kokojamo5"); // TODO: Delete
 	temp->msg=(char*)malloc(sizeof(char)*(1+msg_len));
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): kokojamo6"); // TODO: Delete
 	if (temp->msg==NULL){
 		__android_log_print(ANDROID_LOG_INFO, "Error_","AddMsgToBuffer(): Failed to allocate memory for msg in buffer... ;");
+		free(temp->target_ip);
 		free(temp);
 		return; //TODO : ? :<
 	}
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): kokojamo7"); // TODO: Delete
 	strcpy(temp->msg,msg);
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): kokojamo8"); // TODO: Delete
 
 	search_end = MemberBuffer->msg_buffer;
 	if (search_end == NULL){
@@ -890,6 +891,8 @@ void AddMsgToBuffer(MemberInNetwork* MemberBuffer, const char* msg,int msg_indx,
 		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c", "AddMsgToBuffer(): [%d:%s]",temp->msg_indx,temp->msg);
 		temp=temp->next_buf_msg;
 	}
+
+
 }
 
 int IsHelloMsg(char* msg) {

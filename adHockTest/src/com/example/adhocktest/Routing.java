@@ -34,7 +34,7 @@ public class Routing{
 	private WifiManager mWifi;
 	private String BROADCAST_IP = "192.168.2.255";
 	private InetAddress InetBroadcastAddress = null;
-	private long time_between_ip_broadcasts = 5000; //ms
+	private long time_between_ip_broadcasts = 500; //ms
 	private boolean use_ndk = true;
 	private SenderUDP senderUDP;
 	
@@ -168,16 +168,17 @@ public class Routing{
 					exist=1;
 				}
 			}
+		
 			if (exist!=1){
-
+				i=0;
+		    	index--;
 			    Log.i("Routing.java","exist is ["+exist+"] , i is " +i +" index is "+index);
 		    	handler.post(new Runnable(){
 					public void run() {
 				    	_mActivity.adapterRem(_mActivity.adapter.getItem(final_i));
+				    
 					}
 		    	});
-		    	i=0;
-		    	index = _mActivity.adapter.getCount();
 			}
 		}
 	}
