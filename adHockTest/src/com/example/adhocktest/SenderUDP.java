@@ -39,12 +39,7 @@ public class SenderUDP {
 			
 			try {			
 				Log.i("SenderUDP.java","NDK: sending to IPAddress "+ip);
-				if (this.ip == "192.168.2.255") {
-	
-					str = SendUdpJNI(ip,receiverPort,msg,1);
-				} else {
-					str = SendUdpJNI(ip,receiverPort,msg,0);
-				}
+				str = SendUdpJNI(ip,receiverPort,msg,1); // Always broadcast
 		 		Log.i("SenderUDP.java","NDK:SendUdpJNI returned: "+str);
 			} catch (StackOverflowError e) {
 

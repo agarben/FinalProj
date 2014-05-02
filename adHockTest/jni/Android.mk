@@ -20,4 +20,7 @@ LOCAL_MODULE    := adhoc-jni
 LOCAL_SRC_FILES := adhoc-jni.c
 LOCAL_LDLIBS	:= -llog
 
+APP_ABI := armeabi
+APP_OPTIM := debug
+
 include $(BUILD_SHARED_LIBRARY)
