@@ -761,7 +761,7 @@ Java_com_example_adhocktest_Routing_RefreshNetworkMapJNI(JNIEnv* env1, jobject t
 
 	MemberInNetwork* temp_node = AllNetworkMembersList->FirstMember;
 	char* network_list_str = (char*)malloc(sizeof(char)*HELLO_MSG_LEN);
-	strcpy(network_list_str , "List:");
+	network_list_str[0] = '\0';
 	GenerateHelloMsg(network_list_str,AllNetworkMembersList);
 	__android_log_print(ANDROID_LOG_INFO, "RefreshNetworkMapJNI","AllMembersList is currently [%s]",network_list_str);
 

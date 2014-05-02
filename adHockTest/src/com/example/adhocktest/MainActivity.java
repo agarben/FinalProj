@@ -42,9 +42,9 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	private Handler handler = new Handler(); // TODO: dont forget to delete
 	
 	////// spinner params
-	Spinner ip_spinner;
+	public Spinner ip_spinner;
 	List<String> ip_array;
-	ArrayAdapter<String> adapter;
+	public ArrayAdapter<String> adapter;
 	private String target_ip;
 
 	////// pointers to instances of other objects of the app
@@ -149,29 +149,19 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 
 	public void adapterAdd(String str_to_add) {
 
-		str_to_add = str_to_add.replace("HELLO_FROM<", "");
-		str_to_add = str_to_add.replace(">", "");
-
-		if (adapter.getPosition(str_to_add) == -1) {
-			if (!str_to_add.equals(this.my_ip)) {
-				adapter.add(str_to_add);
-				adapter.notifyDataSetChanged();
-			}
-		}
+			adapter.add(str_to_add);
+			adapter.notifyDataSetChanged();
 	}
 	
 	public void adapterRem(String str_to_rem) {
-		str_to_rem = str_to_rem.replace("HELLO_FROM<", "");
-		str_to_rem = str_to_rem.replace(">", "");
 
-		final String processed_str = str_to_rem;
+		final String final_str = str_to_rem;
 		handler.post(new Runnable(){
 			public void run() {
-				adapter.remove(processed_str);
+				adapter.remove(final_str);
 				adapter.notifyDataSetChanged();
 			}
 		});
-		//ip_array.remove(str_to_rem);
 		Log.i("MainActivity.java","Routing: Need to remove "+str_to_rem);
 	}
 	
@@ -189,13 +179,6 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	
 	public void initIpSpinner() {
 		ip_array = new ArrayList<String>();
-		ip_array.add("192.168.2.255");
-		ip_array.add("0.0.0.255");
-		ip_array.add("255.255.255.255");
-		ip_array.add("192.168.2.207");
-		ip_array.add("192.168.2.22"); 
-		ip_array.add("192.168.2.96");
-		ip_array.add("192.168.2.33");
 		adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, ip_array);
 		ip_spinner = (Spinner) findViewById(R.id.spinner_select_ip);
 		ip_spinner.setAdapter(adapter);

@@ -11,9 +11,12 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.regex.Pattern;
 
 import android.net.wifi.WifiManager;
+import android.os.Handler;
 import android.util.Log;
+import android.widget.Adapter;
 
 public class Routing{
 	public native int InitializeMap( String ip_to_set );	
@@ -22,6 +25,7 @@ public class Routing{
     static {
         System.loadLibrary("adhoc-jni");
     }
+	private Handler handler = new Handler();
 
 	private int PORT = 8888;
 	private String my_ip;
@@ -35,9 +39,7 @@ public class Routing{
 	private SenderUDP senderUDP;
 	
 	MainActivity _mActivity;
-
 	private Map<String,Integer> _ip_time_map;
-
 	
 	public Routing(String ip_to_assign, MainActivity mActivity)
 	{ 
@@ -89,8 +91,9 @@ public class Routing{
              
         	while(true)
         	{
-        		updateIpCounter();
-        		RefreshNetworkMapJNI();
+//        		updateIpCounter();
+        		String NetworkMemberListFromC = RefreshNetworkMapJNI();
+        		RefreshAdapter(NetworkMemberListFromC);
         		
         		if (use_ndk) {
 	        		try {
@@ -128,7 +131,29 @@ public class Routing{
 		_mActivity.adapterAdd(rx_msg);
 	}
 
-
+	void RefreshAdapter(String MembersListStr) {
+		Pattern pat = Pattern.compile(Pattern.quote("()"));
+		String[] MemberListArray = pat.split(MembersListStr);
+        int index;
+	    Log.i("Routing.java","Printing all members - array length is "+MemberListArray.length+"["+MembersListStr+"]");
+		int i;
+		if (MembersListStr.length()>0){
+			for (i=0; i<MemberListArray.length; i++) {
+			    Log.i("Routing.java","Member "+i+" is ["+MemberListArray[i]+"]");
+			    index = _mActivity.adapter.getPosition(MemberListArray[i]);
+			    Log.i("Routing.java","Member "+i+" index is "+index);
+			    final String final_str = MemberListArray[i];
+			    if (index == -1){
+			    	handler.post(new Runnable(){
+						public void run() {
+					    	_mActivity.adapterAdd(final_str);
+						}
+			    	});
+			    }
+			}
+		}
+	}
+	
 	void updateIpCounter() {
 	    Log.i("Routing.java","UpdateIpCounter()");
 		for (Map.Entry<String, Integer> entry : _ip_time_map.entrySet())
