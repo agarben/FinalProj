@@ -168,7 +168,7 @@ public class Routing{
 					exist=1;
 				}
 			}
-			if (exist!=1 && i == index-1){
+			if (exist!=1){
 
 			    Log.i("Routing.java","exist is ["+exist+"] , i is " +i +" index is "+index);
 		    	handler.post(new Runnable(){
