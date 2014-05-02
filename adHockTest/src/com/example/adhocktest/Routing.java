@@ -135,10 +135,11 @@ public class Routing{
 		Pattern pat = Pattern.compile(Pattern.quote("()"));
 		String[] MemberListArray = pat.split(MembersListStr);
         int index;
+        int exist=-1;
 	    Log.i("Routing.java","Printing all members - array length is "+MemberListArray.length+"["+MembersListStr+"]");
 		int i;
 		if (MembersListStr.length()>0){
-			for (i=0; i<MemberListArray.length; i++) {
+			for (i=0; i<MemberListArray.length; i++) {   //add new nodes
 			    Log.i("Routing.java","Member "+i+" is ["+MemberListArray[i]+"]");
 			    index = _mActivity.adapter.getPosition(MemberListArray[i]);
 			    Log.i("Routing.java","Member "+i+" index is "+index);
@@ -152,8 +153,44 @@ public class Routing{
 			    }
 			}
 		}
+		
+//		RefreshRemover();
+		/// remove dead nodes
+		index = _mActivity.adapter.getCount();
+	    Log.i("Routing.java","Entering loop with adapter size = "+index);
+		for (i=0;i<index;i++){
+			exist=-1;
+			final int final_i = i;
+		    Log.i("Routing.java","final_i = "+final_i);
+			for (String s_tmp : MemberListArray){
+				if (s_tmp.equals(_mActivity.adapter.getItem(i))){
+				    Log.i("Routing.java","found s_tmp ["+s_tmp+"] , adapter item #" +i +" ["+_mActivity.adapter.getItem(i)+"]");
+					exist=1;
+				}
+			}
+			if (exist!=1 && i == index-1){
+
+			    Log.i("Routing.java","exist is ["+exist+"] , i is " +i +" index is "+index);
+		    	handler.post(new Runnable(){
+					public void run() {
+				    	_mActivity.adapterRem(_mActivity.adapter.getItem(final_i));
+					}
+		    	});
+		    	i=0;
+		    	index = _mActivity.adapter.getCount();
+			}
+		}
 	}
-	
+//	
+//	void RefreshRemover(String MemberToCheck, int member_index, String[] MemberListArray) {
+//		
+//	
+//		for (each in MemberListArray){
+//	//		if member exit flag=1
+//			final String final_str = MemberToCheck;
+//		}
+//	}
+//	
 	void updateIpCounter() {
 	    Log.i("Routing.java","UpdateIpCounter()");
 		for (Map.Entry<String, Integer> entry : _ip_time_map.entrySet())

@@ -402,16 +402,30 @@ int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* m
 	network_to_remove_from->num_of_nodes -= 1;
 	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Removing member [%s] successfully from the network of [%s]. New amount of nodes [%d]", member_to_remove->node_ip,network_to_remove_from->node_base_ip,network_to_remove_from->num_of_nodes);
 
+//	if (network_is_members_list == FALSE) {
+//		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Entered first condition");
+//		temp_member = GetNode(member_to_remove->node_ip, AllNetworkMembersList, 1);
+//		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Entered second condition");
+//		if (temp_member != NULL){;
+//		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Entered third condition");
+//		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): AllNetworkMembersList->[%s] instance_count=[%d] ",temp_member->node_ip, temp_member->instance_count);
+//			if (--temp_member->instance_count == 0) { // One less instance of node_ip exists in the network now.
+//				__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Going to remove [%s] from AllNetworkMembersList",temp_member->node_ip);
+//				RemoveFromNetworkMap(AllNetworkMembersList,temp_member,TRUE);
+//			}
+//		}
+//	}
+
 	if (network_is_members_list == FALSE) {
-		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Entered first condition");
-		temp_member = GetNode(member_to_remove->node_ip, AllNetworkMembersList, 1);
-		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Entered second condition");
-		if (temp_member != NULL){;
-		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Entered third condition");
-		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): AllNetworkMembersList->[%s] instance_count=[%d] ",temp_member->node_ip, temp_member->instance_count);
-			if (--temp_member->instance_count == 0) { // One less instance of node_ip exists in the network now.
-				__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Going to remove [%s] from AllNetworkMembersList",temp_member->node_ip);
+		temp_member = GetNode(member_to_remove->node_ip, MyNetworkMap, 100); // TODO: Should be network depth
+		if (temp_member == NULL) {
+			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): temp_member == null in networkMap");
+			temp_member = GetNode(member_to_remove->node_ip, AllNetworkMembersList,1);
+			if (temp_member != NULL) {
+				__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): temp_member != null in allMembersList");
 				RemoveFromNetworkMap(AllNetworkMembersList,temp_member,TRUE);
+			} else {
+				__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): temp_member == null in allMembersList");
 			}
 		}
 	}
@@ -783,6 +797,7 @@ void RefreshNetworkMap(NetworkMap* network_to_refresh) {
 			__android_log_print(ANDROID_LOG_INFO, "RefreshNetworkMap","Network [%s] member [%s] countdown=[%d] - REMOVE",network_to_refresh->node_base_ip,son_to_refresh->node_ip,son_to_refresh->CountdownTimer);
 			temp_network_member = son_to_refresh;
 			son_to_refresh = son_to_refresh->NextNode;
+
 			RemoveFromNetworkMap(network_to_refresh, temp_network_member,FALSE);
 		}
 	}

@@ -148,7 +148,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	}
 
 	public void adapterAdd(String str_to_add) {
-
+			
 			adapter.add(str_to_add);
 			adapter.notifyDataSetChanged();
 	}
