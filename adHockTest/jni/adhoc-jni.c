@@ -475,6 +475,9 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 	static int msg_index = 0;
 	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): Message is [%s]", message);
 
+	char* next_hop_ip;
+	char final_dest_ip[20];
+
 	////////////////
 	/// create socket
 	////////////////
@@ -530,15 +533,30 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto() Success (retval=%d messge='%s' size=%d ip=%s", retval,hello_message_string,strlen(hello_message_string),_ip);
 		}
 	} else {
-		strcpy(send_buf,_ip);
-		strcat(send_buf,"|");
-		strcat(send_buf,_ip);
-		strcat(send_buf,";XOR{");
-		strcat(send_buf,_ip);
-		strcat(send_buf,"-");
-		sprintf(strstr(send_buf,"-"),"-%d",msg_index++);
-		strcat(send_buf,"}");
-		strcat(send_buf,message);
+		/////////////////
+		// Get next hop
+		/////////////////
+		strcpy(final_dest_ip,_ip);
+		MemberInNetwork* temp_member = GetNode(final_dest_ip, AllNetworkMembersList, 1);
+		if (temp_member != NULL) {
+			temp_member = GetNextHop(MyNetworkMap,temp_member);
+			if (temp_member != NULL) {
+				next_hop_ip = temp_member->node_ip;
+
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): final destination [%s], next hop [%s]", _ip,next_hop_ip);
+				strcpy(send_buf,next_hop_ip);
+				strcat(send_buf,"|");
+				strcat(send_buf,_ip);
+				strcat(send_buf,";XOR{");
+				strcat(send_buf,MyNetworkMap->node_base_ip);
+				strcat(send_buf,"-");
+				sprintf(strstr(send_buf,"-"),"-%d",msg_index++);
+				strcat(send_buf,"}");
+				strcat(send_buf,message);
+			} else {
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): failed to find next hop. Returning");
+			}
+		}
 
 		retval = sendto(sock_fd, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr, sizeof(servaddr));
 		if ( retval < 0) {
@@ -547,89 +565,6 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto() Success (retval=%d messge='%s' size=%d ip=%s", retval,send_buf,strlen(send_buf),_ip);
 		}
 	}
-
-
-	////////////////////
-	///  Code section from the time when we had the recvfrom bug
-	//////////////////////
-
-//	free(send_buf); // TODO: Check this
-//	free(return_str);
-//	close(sock_fd);
-//	return return_str;
-//
-//	char* hello_message_string;
-//	int retval;
-//
-//	if (strcmp(message, "HELLO_MSG:")==0) {
-//		hello_message_string = (char*)malloc(sizeof(char)*HELLO_MSG_LEN);
-//		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): allocated hello_string [%s]",hello_message_string);// TODO: Delete
-//		strcpy(hello_message_string,"HELLO_MSG:");
-//		strcat(hello_message_string,MyNetworkMap->node_base_ip);
-//		strcat(hello_message_string,"(");
-//		GenerateHelloMsg(hello_message_string,MyNetworkMap);
-//		strcat(hello_message_string,")");
-//
-//		retval = sendto(sock_fd, hello_message_string, strlen(hello_message_string), 0, (struct sockaddr*)&servaddr, sizeof(servaddr));
-//		if ( retval < 0) {
-//				sprintf(return_str, "sendto failed with %d. message was [%s]", errno,hello_message_string);
-//		} else {
-//				sprintf(return_str, "sendto() Success (retval=%d messge='%s' size=%d ip=%s", retval,hello_message_string,strlen(hello_message_string),_ip);
-//		}
-//		free(hello_message_string);
-//	} else {
-//		////////////////
-//		// Find next hop
-//		////////////////
-//		char * final_destionation_ip = (char*)malloc(sizeof(char)*strlen(_ip));
-//		strcpy(final_destionation_ip, _ip);
-//		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): final destination [%s]", final_destionation_ip);
-//		MemberInNetwork* temp_member =  GetNode(final_destionation_ip, AllNetworkMembersList, 1);
-//		if (temp_member != NULL) {
-//			char* next_hop_ip = GetNextHop(MyNetworkMap,temp_member)->node_ip;
-//			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): final destination [%s], next hop [%s]", final_destionation_ip,next_hop_ip);
-//
-//			strcpy(send_buf, next_hop_ip);
-//			strcat(send_buf,"|");
-//			strcat(send_buf,final_destionation_ip);
-//			strcat(send_buf,";");
-//			if (is_source == 1) {
-//				strcat(send_buf,"XOR{");
-//				strcat(send_buf, MyNetworkMap->node_base_ip);
-//				strcat(send_buf, "-");
-//				char* strstrptr = strstr(send_buf,"-");
-//				if (strstrptr != NULL) {
-//					sprintf(strstrptr+1,"%d",msg_index++);
-//				} else {
-//					__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI(): strstr returned NULL");
-//					return("SendUdpJNI(): strstr returned NULL"); // TODO: Check this is possible
-//				}
-//				strcat(send_buf, "}");
-//			}
-//			strcat(send_buf, message);
-//			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendbuf is [%s]", send_buf);
-//		} else {
-//			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): final destination [%s] is not a member of this network", final_destionation_ip);
-//		}
-//	  //free(final_destionation_ip); // TODO: Without this free there is a memory leek, with it we crash, find out why and fix
-//
-//		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): Entering AddMsgToBuffer()"); // TODO : Delete
-////		AddMsgToBuffer(MyMemberBuffer,message,msg_index,msg_len,ExtractTargetFromHeader(send_buf));
-//		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): Exiting AddMsgToBuffer()"); // TODO : Delete
-//		retval = sendto(sock_fd, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr, sizeof(servaddr));
-//		if ( retval < 0) {
-//				sprintf(return_str, "sendto failed with %d. message was [%s]", errno,send_buf);
-//		} else {
-//				sprintf(return_str, "sendto() Success (retval=%d messge='%s' size=%d ip=%s", retval,send_buf,strlen(send_buf),_ip);
-//		}
-//	}
-//
-//
-////	free(send_buf); // TODO: this may be a memory leak , try to fix it (crashed when uncommented)
-//
-//	close(sock_fd);
-//	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): Gonna return with [%s]", return_str); // TODO: Delete
-//	return return_str;
 }
 
 jstring
@@ -642,6 +577,9 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	int is_ignore_msg = 0;
 	int is_forward_msg = 0;
 
+	char return_str[300];
+	char* next_hop_from_header;
+	char* target_from_header;
 	__android_log_write(ANDROID_LOG_INFO, "RecvUdpJNI()",  "Entering RecvUdpJNI"); // TODO: Remove
 
 	/////////
@@ -679,7 +617,7 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Gonna try to receive"); // TODO: Delete
 	//try to receive
 	int retval = recvfrom(sockfd, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen);
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Done receive retval=[%d]",retval);// TODO: Delete
+	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Done receive retval=[%d] msg=[%s]",retval,buf);// TODO: Delete
 	if (retval==-1) {
 		return (*env1)->NewStringUTF(env1, "errRecv");
 	} else {
@@ -688,34 +626,60 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 
 	close(sockfd);
 
-	// if (message is from me) {
-	// 		ignore message
-	// else if (hello_msg)
-	// 		process hello_msg
-	// else
-	//		if network_coding
-	//			decrypt message
-	// 		if (i_am_target)
-	// 			process msg
-	// 		else if (i am next_hop)
-	// 			 	find next hop
-	// 			 	send to next hop
-	//		else
-	// 			 print no condition satisfied
-
 	if (strcmp(inet_ntoa(cli_addr.sin_addr),MyNetworkMap->node_base_ip)==0) {									// MSG is an echo from myself
 		is_ignore_msg = TRUE;
 		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Ignoring echo from myself");
+	} else if (IsNodeForbidden(inet_ntoa(cli_addr.sin_addr)) == TRUE) {
+		is_ignore_msg = TRUE;
+		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Ignoring message from forbidden node");
 	} else if (IsHelloMsg(buf) == TRUE) {																		// Hello msg
 		is_ignore_msg = TRUE;
-		if (IsNodeForbidden(inet_ntoa(cli_addr.sin_addr)) == 1){
+		if (IsNodeForbidden(inet_ntoa(cli_addr.sin_addr)) == TRUE){
 			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Ignoring HELLO_MSG from  [%s]", inet_ntoa(cli_addr.sin_addr));
 		} else {
 			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Going to process hello");		// TODO: Delete
 			ProcessHelloMsg(strpbrk(buf,":")+1,strlen(strpbrk(buf,":")+1),MyNetworkMap);                        // WARNING This line will crash if hello msg doesnt contain ":"
 		}
 	} else {
-		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Message is not from myself, and isnt Hello");
+		if (network_coding_on == TRUE) {
+			__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): Message decryption should occur here but its not implemented");
+		}
+
+		target_from_header = ExtractTargetFromHeader(buf);
+		next_hop_from_header = ExtractNextHopFromHeader(buf);
+		if (target_from_header==NULL || next_hop_from_header == NULL){
+			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Bad message, ignoring [%s]",buf);
+			is_ignore_msg = TRUE;
+		} else {
+			if (strcmp(MyNetworkMap->node_base_ip,target_from_header) == 0) {        		// i am the target of the msg
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): I am the target of this message");
+			} else if (strcmp(MyNetworkMap->node_base_ip,next_hop_from_header) == 0){ 		// i am the next hop
+				is_forward_msg = TRUE;
+
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): I am the next hop of this message. forwarding [%s]",buf);
+				strstrptr = strstr(buf,";");
+				if (strstrptr == NULL) {
+					__android_log_print(ANDROID_LOG_INFO, "Error",  "RecvUdpJNI(): Did not find ';'");
+					exit(-1);
+				}
+
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): target_ip extracted before calling SendUdpJNI: <%s>",target_from_header);
+				SendUdpJNI(target_from_header,PORT,strstrptr+1,1,0,strlen(strstrptr+1)); // TODO: When we add XOR we have to use the message length integer instead of strlen()
+				sprintf(return_str, "forwarding message [%s]",buf);
+
+			} else { 	 						// I am neither the next hop or target
+				is_ignore_msg = TRUE;
+			}
+		}
+		//////
+		// Free memhttps://scontent-b-fra.xx.fbcdn.net/hphotos-prn2/t1.0-9/1174991_10202254138181241_545136069_n.jpg
+		//////
+		if (next_hop_from_header != NULL) {
+			free(next_hop_from_header);
+		}
+		if (target_from_header != NULL) {
+			free(target_from_header);
+		}
 	}
 
 
@@ -725,93 +689,11 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	//if received successfully , close socket
 	if (is_ignore_msg == TRUE) {
 		return (*env1)->NewStringUTF(env1, "ignore"); // return ignore
+	} else if (is_forward_msg) {
+		return (*env1)->NewStringUTF(env1, return_str);
 	} else {
 		return (*env1)->NewStringUTF(env1, buf);
 	}
-
-
-
-	 ////////////////////
-	///  Code section from the time when we had the recvfrom bug
-	//////////////////////
-
-
-//	/////////
-//	// Analyze message and return
-//	//////////
-//	char* target_ip;
-//	char* next_hop_ip;
-////	char* source_ip = ExtractSourceFromHeader(buf); // TODO: Implement ExtractSourceFromHeader
-//
-//	if (strcmp(inet_ntoa(cli_addr.sin_addr),MyNetworkMap->node_base_ip)==0) {									// MSG is an echo from myself
-//		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Ignoring echo from myself");
-//	} else {																							// MSG is not from myself, analyze
-//		if (IsHelloMsg(buf) == TRUE) {
-//			if (IsNodeForbidden(inet_ntoa(cli_addr.sin_addr)) == 1){
-//				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Ignoring HELLO_MSG from  [%s]", inet_ntoa(cli_addr.sin_addr));
-//			}
-//			else{
-//				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Going to process hello");// TODO: Delete
-//				ProcessHelloMsg(strpbrk(buf,":")+1,strlen(strpbrk(buf,":")+1),MyNetworkMap);
-//			}
-//		} else {
-////			char* target_ip = ExtractTargetFromHeader(buf);
-////			char* next_hop_ip = ExtractNextHopFromHeader(buf);
-////		//	char* source_ip = ExtractSourceFromHeader(buf); // TODO: Implement ExtractSourceFromHeader
-////
-////
-////			if (strcmp(inet_ntoa(cli_addr.sin_addr),MyNetworkMap->node_base_ip)==0) { // Message received is an echo from myself.
-////				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): IGNORE_MSG [%s]", buf);
-////				is_ignore_msg = 1;
-////			} else {
-////
-////				if (strcmp(MyNetworkMap->node_base_ip,target_ip)==0) {
-////					__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): I AM THE TARGET OF THE MSG [%s]", buf);
-////				} else if (strcmp(next_hop_ip,MyNetworkMap->node_base_ip)==0) {
-////					__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): I AM THE NEXT HOP OF THE MSG [%s]", buf);
-////					is_forward_msg = 1;
-////				} else { 		// NOTE : For the moment we do not need messages that we are not the next hop or target of.
-////								//			In the future we may want to keep this side information for opportunistic decoding.
-////					__android_log_print(ANDROID_LOG_INFO, "WARNING","RecvUdpJNI(): I am neither the source,target or nexthop of this message [%s]", buf);
-////					is_ignore_msg = 1;
-////				}
-////			}
-//		}
-//	}
-//
-//
-//	char* return_str = (char*)malloc(sizeof(char)*200);
-//	if (is_ignore_msg == 1) {
-//		sprintf(return_str, "ignoring message [%s]",buf);
-//		free(buf);
-//		return (*env1)->NewStringUTF(env1, "ignore"); // return ignore
-//	} else if (is_forward_msg == 1) {
-//		if (network_coding_on == TRUE) {
-//			SourceList* source_list = GetSourceFromString(buf);
-//		} else { // Network coding is OFF, just forward
-//			strstrptr = strstr(buf,";");
-//			if (strstrptr != NULL) {
-//				__android_log_print(ANDROID_LOG_INFO, "Error",  "RecvUdpJNI(): Did not find ';'");
-//				exit(-1);
-//			}
-//			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): target_ip extracted before calling SendUdpJNI: <%s>",target_ip);
-//			SendUdpJNI(target_ip,PORT,strstrptr+1,1,0,strlen(strstrptr+1)); // TODO: When we add XOR we have to use the message length integer instead of strlen()
-//			sprintf(return_str, "forwarding message [%s]",buf);
-//			free(buf);
-//			return (*env1)->NewStringUTF(env1, return_str); // return ignore
-//		}
-//	} else { // I AM THE TARGET OF THE MESSAGE
-//		if (network_coding_on == TRUE) {
-//			__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): Network coding decryption not yet implemented");
-//		} else {
-//			strstrptr = strstr(buf,";");
-//			if (strstrptr != NULL) {
-//				return (*env1)->NewStringUTF(env1, strstrptr+1); // only return the MSG part
-//			} else {
-//				return (*env1)->NewStringUTF(env1, buf); // TODO: this should be an error
-//			}
-//		}
-//	}
 }
 
 void ProcessHelloMsg(char* buf,int buf_length,NetworkMap* network_to_add_to) {
@@ -938,7 +820,7 @@ MemberInNetwork* GetNextHop(NetworkMap* network_to_search ,MemberInNetwork* fina
 
 	}
 
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","GetNextHop(): Did not find [%s] in [%s]", final_destination->node_ip,network_to_search->node_base_ip);
+	__android_log_print(ANDROID_LOG_INFO, "adhoc-.c","GetNextHop(): Did not find [%s] in [%s]", final_destination->node_ip,network_to_search->node_base_ip);
 	return NULL;
 
 }
@@ -1004,25 +886,29 @@ int IsHelloMsg(char* msg) {
 }
 
 char* ExtractNextHopFromHeader(char *msg) {
-	char* temp[20];
+	char* temp = (char*)malloc(sizeof(char)*20);
 	int i;
 
 	for (i=0; msg[i] != '|'; i++) {
 		temp[i] = msg[i];
+		if (i>20) {
+			free(temp);
+			return NULL;
+		}
 	}
 	temp[i] = '\0';
 	return temp;
 }
 
 char* ExtractTargetFromHeader(char *msg) {
-	char temp[20];
+	char* temp = (char*)malloc(sizeof(char)*20);
 	int i;
 
 	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c", "ExtractTargetFromHeader(): Entered function"); // TODO: Delete
 	char* strstrptr = strstr(msg,"|");
 	if (strstrptr == NULL) {
 		__android_log_print(ANDROID_LOG_INFO, "Error", "ExtractTargetFromHeader(): Did not find '|' in the message [%s]",msg);
-		exit(-1);
+		return NULL;
 	}
 	strstrptr++;
 	for (i=0; strstrptr[i] != ';'; i++) {
@@ -1043,7 +929,7 @@ int GetIntFromString(char* str_number) {
 		digit = str_number[i] - '0';
 		if (digit > 9 || digit < 0) {
 			__android_log_print(ANDROID_LOG_INFO, "Error", "GetIntFromString(): Invalid number represented by string [%s]",str_number);
-			exit(-1);
+			return -1;
 		}
 		number_to_return += digit*factor;
 		factor = factor*10;
@@ -1056,7 +942,7 @@ SourceList* GetSourceFromString(char* msg){
 	char* strstrptr;
 	char* temp_source_index_as_string = (char*)malloc(sizeof(char)* 20);
 	if (temp_source_index_as_string == NULL) {
-		exit(-1);
+		return NULL;
 	}
 	SourceList* head_of_source_list = (SourceList*)malloc(sizeof(SourceList));
 	head_of_source_list->ip = (char*)malloc(sizeof(char)* 20);
