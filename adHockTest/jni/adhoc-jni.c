@@ -113,7 +113,7 @@ int UpdateNodeTimer(MemberInNetwork* Node_to_update, int Countdown);
 int AddToNetworkMap(char* node_ip,NetworkMap * Network_Head);
 int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* member_to_remove, int network_is_members_list);
 int DoesNodeExist(char* ip_to_check, NetworkMap* Network_to_check);
-jstring Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env, jobject thiz, jstring ip,jint port, jstring message, jint is_broadcast);
+void Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env, jobject thiz, jstring ip,jint port, jstring message, jint is_broadcast);
 void SendUdpJNI(const char* ip, int port, const char* message, int is_broadcast, int is_source, int msg_len);
 jstring Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz);
 void ProcessHelloMsg(char* buf,int buf_length,NetworkMap* network_to_add_to);
@@ -218,7 +218,6 @@ Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1,
 	} else if (strcmp(MyNetworkMap->node_base_ip ,"192.168.2.207")==0) {
 		strcpy(ForbiddenNodesToAdd->FirstMember->node_ip,"192.168.2.96");
 	}
-	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","InitializeMap(): Forbidden list first member : %s" , ForbiddenNodesToAdd->FirstMember->node_ip); //TODO:DELETE
 	ForbiddenNodesToAdd->FirstMember->NextNode = NULL;
 	ForbiddenNodesToAdd->FirstMember->PrevNode = NULL;
 
@@ -332,26 +331,16 @@ int AddToNetworkMap(char* node_ip, NetworkMap * Network_Head){
  */
 int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* member_to_remove, int network_is_members_list){
 
-	// TODO: Check this function
 	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Received a request to remove node: [%s]", member_to_remove->node_ip);
 
 	// 3. remove ip from network and free memory
-
-
-	__android_log_print(ANDROID_LOG_INFO, "Debug","Debug BUG#1: Entering RemoveFromNetwork() - base_ip [%s] member to remove [%s]", network_to_remove_from->node_base_ip, member_to_remove->node_ip);
-
-	__android_log_print(ANDROID_LOG_INFO, "Debug","Debug BUG#1: STAGE 1");
-
-	__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): There is only one node in the network (first = last)");
 	MemberInNetwork* son_to_remove = member_to_remove->SubNetwork->FirstMember; // remove all sons of member_to_remove before deleting the member itself
 	MemberInNetwork* temp_member;
 	while (son_to_remove != NULL) {
-		__android_log_print(ANDROID_LOG_INFO, "Debug","Debug BUG#1: son to remove [%s]", son_to_remove->node_ip);
 		temp_member = son_to_remove->NextNode;
 		RemoveFromNetworkMap(member_to_remove->SubNetwork,son_to_remove,FALSE);
 		son_to_remove = temp_member;
 		if (son_to_remove == NULL) {
-			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Removed all sons of [%s]", member_to_remove->node_ip);
 		} else {
 			son_to_remove->PrevNode = NULL; // pref is null but first in sub isn't touched anymore, [ not important ]
 		}
@@ -360,7 +349,6 @@ int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* m
 //	NEXT HOP   FINAL DEST     OTHER HEADER SHIT
 //    IP1      | IP2         |       rsrvd         |   MESSAGE
 
-	__android_log_write(ANDROID_LOG_INFO, "Debug","Debug BUG#1: STAGE 2");
 	// After all sons have been deleted, remove member_to_remove
 	if ((network_to_remove_from->FirstMember == network_to_remove_from->LastNetworkMember) && network_to_remove_from->FirstMember!=NULL){
 
@@ -398,7 +386,6 @@ int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* m
 		}
 
 	}
-	__android_log_write(ANDROID_LOG_INFO, "Debug","Debug BUG#1: STAGE 3");
 	network_to_remove_from->num_of_nodes -= 1;
 	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Removing member [%s] successfully from the network of [%s]. New amount of nodes [%d]", member_to_remove->node_ip,network_to_remove_from->node_base_ip,network_to_remove_from->num_of_nodes);
 
@@ -419,22 +406,16 @@ int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* m
 	if (network_is_members_list == FALSE) {
 		temp_member = GetNode(member_to_remove->node_ip, MyNetworkMap, 100); // TODO: Should be network depth
 		if (temp_member == NULL) {
-			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): temp_member == null in networkMap");
 			temp_member = GetNode(member_to_remove->node_ip, AllNetworkMembersList,1);
 			if (temp_member != NULL) {
-				__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): temp_member != null in allMembersList");
 				RemoveFromNetworkMap(AllNetworkMembersList,temp_member,TRUE);
 			} else {
-				__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): temp_member == null in allMembersList");
 			}
 		}
 	}
-	__android_log_write(ANDROID_LOG_INFO, "Debug","Debug BUG#1: STAGE 4");
 	free(member_to_remove->node_ip);
 	free(member_to_remove->SubNetwork);
 	free(member_to_remove);
-
-	__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Ended naturally");
 	return 0;
 
 }
@@ -455,19 +436,17 @@ int DoesNodeExist(char* ip_to_check, NetworkMap* Network_to_check){
 	while(temp!=NULL){
 		if(strcmp(temp->node_ip,ip_to_check) == STR_EQUAL){
 			//node was found in the network map
-			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","The node with ip :[%s] is already in the network map", ip_to_check);
 			return TRUE;
 		}
 		else{
 			//this node still isn't the node we received
-			__android_log_print(ANDROID_LOG_INFO, "NetworkMap","Current node : [%s] is not the node we want to look for [%s]", temp->node_ip,ip_to_check);
 			temp = temp->NextNode;
 		}
 	}
 	return FALSE;
 }
 
-jstring
+void
 Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
                                                   jobject thiz, jstring ip,jint port, jstring j_message, jint is_broadcast)
 {
@@ -475,11 +454,9 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
 	const char *_ip = (*env)->GetStringUTFChars(env, ip, 0);
 	const char *message = (*env)->GetStringUTFChars(env, j_message, 0);   // Message to be sent
 
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): Sending to SendUdpJNI Message [%s]", message);
 	SendUdpJNI(_ip,port,message,is_broadcast,1,strlen(message));
 	(*env)->ReleaseStringUTFChars(env,j_message,message);
 	(*env)->ReleaseStringUTFChars(env,ip,_ip);
-	return (*env)->NewStringUTF(env,"meaningless str"); // is_source==1 because we're calling the function from java
 }
 
 void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast, int is_source, int msg_len) {
@@ -522,9 +499,7 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI():Cannot decode IP address");
 		return;
 	}
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): s_addr before = %X",servaddr.sin_addr.s_addr ); // TODO: Delete
 	servaddr.sin_addr.s_addr |= 0xff000000; // always broadcast!
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): s_addr = %X",servaddr.sin_addr.s_addr ); // TODO: Delete
 
 
 	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sock_fd values = %d", sock_fd);
@@ -556,8 +531,6 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 			temp_member = GetNextHop(MyNetworkMap,temp_member);
 			if (temp_member != NULL) {
 				next_hop_ip = temp_member->node_ip;
-
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): final destination [%s], next hop [%s]", _ip,next_hop_ip);
 				strcpy(send_buf,next_hop_ip);
 				strcat(send_buf,"|");
 				strcat(send_buf,_ip);
@@ -594,7 +567,6 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	char return_str[300];
 	char* next_hop_from_header;
 	char* target_from_header;
-	__android_log_write(ANDROID_LOG_INFO, "RecvUdpJNI()",  "Entering RecvUdpJNI"); // TODO: Remove
 
 	/////////
 	// Create and bind socket
@@ -610,6 +582,8 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	}
 
 	if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1) {
+		int temp = errno;
+		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): socket() call failed. errno : %d ",temp);
 		free(buf);
 		return (*env1)->NewStringUTF(env1, "socket");
 	}
@@ -628,10 +602,8 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	///////////
 	/// Receive UDP packets
 	//////////
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Gonna try to receive"); // TODO: Delete
 	//try to receive
 	int retval = recvfrom(sockfd, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen);
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Done receive retval=[%d] msg=[%s]",retval,buf);// TODO: Delete
 	if (retval==-1) {
 		return (*env1)->NewStringUTF(env1, "errRecv");
 	} else {
@@ -651,7 +623,6 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 		if (IsNodeForbidden(inet_ntoa(cli_addr.sin_addr)) == TRUE){
 			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Ignoring HELLO_MSG from  [%s]", inet_ntoa(cli_addr.sin_addr));
 		} else {
-			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Going to process hello");		// TODO: Delete
 			ProcessHelloMsg(strpbrk(buf,":")+1,strlen(strpbrk(buf,":")+1),MyNetworkMap);                        // WARNING This line will crash if hello msg doesnt contain ":"
 		}
 	} else {
@@ -699,8 +670,7 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	}
 
 
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Raw string: <%s>",buf);
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Received");
+	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Raw string received: <%s>",buf);
 
 	//if received successfully , close socket
 	if (is_ignore_msg == TRUE) {
@@ -734,7 +704,6 @@ void ProcessHelloMsg(char* buf,int buf_length,NetworkMap* network_to_add_to) {
 				ip_to_add[i] = '\0';
 				__android_log_print(ANDROID_LOG_INFO, "ProcessHelloMsg()",  "Ip_to_add : [%s] calling add to network",ip_to_add);
 				if (strcmp(ip_to_add,MyNetworkMap->node_base_ip) == 0) {
-					__android_log_write(ANDROID_LOG_INFO, "ProcessHelloMsg()",  "~~DETECTED ATTEMP TO ADD SELF~~");
 					dont_add_sons = TRUE;
 				} else {
 					retVal = AddToNetworkMap(ip_to_add,network_to_add_to);
@@ -763,7 +732,6 @@ void ProcessHelloMsg(char* buf,int buf_length,NetworkMap* network_to_add_to) {
 			}
 		}
 	}
-	__android_log_print(ANDROID_LOG_INFO, "ProcessHelloMsg()",  "Going to exit ProcessHelloMsg()"); // TODO : delete
 	//TODO: Free memory
 }
 
@@ -852,13 +820,13 @@ void AddMsgToBuffer(MemberInNetwork* MemberBuffer, const char* msg,int msg_indx,
 	temp = (Buffer*)malloc(sizeof(Buffer));
 	if (temp==NULL){
 		__android_log_print(ANDROID_LOG_INFO, "Error","AddMsgToBuffer(): Failed to allocate memory for Buffer... ;");
-		return; //TODO : ? :<
+		return;
 	}
 	temp->target_ip = (char*)malloc(sizeof(char)*20);
 	if (temp->target_ip==NULL){
 		__android_log_print(ANDROID_LOG_INFO, "Error","AddMsgToBuffer(): Failed to allocate memory for temp->target_ip... ;");
 		free(temp->target_ip);
-		return; //TODO : ? :<
+		return;
 	}
 
 	strcpy(temp->target_ip,target_ip);
@@ -870,7 +838,7 @@ void AddMsgToBuffer(MemberInNetwork* MemberBuffer, const char* msg,int msg_indx,
 		__android_log_print(ANDROID_LOG_INFO, "Error_","AddMsgToBuffer(): Failed to allocate memory for msg in buffer... ;");
 		free(temp->target_ip);
 		free(temp);
-		return; //TODO : ? :<
+		return;
 	}
 	strcpy(temp->msg,msg);
 
@@ -922,7 +890,6 @@ char* ExtractTargetFromHeader(char *msg) {
 	char* temp = (char*)malloc(sizeof(char)*20);
 	int i;
 
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c", "ExtractTargetFromHeader(): Entered function"); // TODO: Delete
 	char* strstrptr = strstr(msg,"|");
 	if (strstrptr == NULL) {
 		__android_log_print(ANDROID_LOG_INFO, "Error", "ExtractTargetFromHeader(): Did not find '|' in the message [%s]",msg);
@@ -933,7 +900,6 @@ char* ExtractTargetFromHeader(char *msg) {
 		temp[i] = strstrptr[i];
 	}
 	temp[i] = '\0';
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c", "ExtractTargetFromHeader(): Return from function"); // TODO: Delete
 	return temp;
 }
 

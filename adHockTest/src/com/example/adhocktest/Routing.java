@@ -34,7 +34,7 @@ public class Routing{
 	private WifiManager mWifi;
 	private String BROADCAST_IP = "192.168.2.255";
 	private InetAddress InetBroadcastAddress = null;
-	private long time_between_ip_broadcasts = 500; //ms
+	private long time_between_ip_broadcasts = 2000; //ms
 	private boolean use_ndk = true;
 	private SenderUDP senderUDP;
 	

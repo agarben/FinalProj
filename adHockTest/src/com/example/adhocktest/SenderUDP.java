@@ -9,7 +9,7 @@ import android.util.Log;
 
 public class SenderUDP {
 
-	public native String  SendUdpJNI( String ip, int port, String j_message, int is_broadcast);		
+	public native void SendUdpJNI( String ip, int port, String j_message, int is_broadcast);		
     static {
         System.loadLibrary("adhoc-jni");
     }
@@ -39,11 +39,9 @@ public class SenderUDP {
 			
 			try {			
 				Log.i("SenderUDP.java","NDK: sending to IPAddress "+ip);
-				str = SendUdpJNI(ip,receiverPort,msg,1); // Always broadcast
-		 		Log.i("SenderUDP.java","NDK:SendUdpJNI returned: "+str);
+				SendUdpJNI(ip,receiverPort,msg,1); // Always broadcast
 			} catch (StackOverflowError e) {
-
-				Log.i("SenderUDP.java","CAUGHT 0");
+				Log.i("SenderUDP.java","CAUGHT 00");
 				e.printStackTrace(); 
 			}
 		} else {
