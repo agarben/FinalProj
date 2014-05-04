@@ -45,6 +45,8 @@
 #define STR_EQUAL 0
 #define STR_NOT_EQUAL 1
 #define HEADER_LEN 200 // TODO: May need to be increased
+#define BUFLEN 300
+#define MAX_MSGS_IN_BUF 20
 
 /////
 //DEFINE MEMBER IN NETWORK
@@ -61,13 +63,14 @@ typedef struct SourceList{
 } SourceList;
 
 typedef struct Buffer{
+
 	int msg_indx;
-	char* msg;
-	struct Buffer* next_buf_msg;
-	char* target_ip;
+	char msg[BUFLEN];
 
 	int was_broadcast; 			// Flag - Set:This message was already sent as a broadcast clear: it was not
-	int msg_len; // xor might cause unexpected '\0'
+	//int msg_len; // xor might cause unexpected '\0'
+	int should_xor;
+
 } Buffer;
 
 
@@ -78,9 +81,10 @@ typedef struct MemberInNetwork {
 	struct MemberInNetwork * PrevNode;
 	struct NetworkMap * SubNetwork;
 	int CountdownTimer;
+	Buffer MemberBuffer[MAX_MSGS_IN_BUF];
+	int buf_index;
 
-	int instance_count; // only used for the AllNetworkMembersList
-	Buffer* msg_buffer;
+
 	//need to add more parameters such as last received etc
 } MemberInNetwork;
 
@@ -100,7 +104,6 @@ typedef struct NetworkMap {
 NetworkMap* MyNetworkMap;
 NetworkMap* AllNetworkMembersList;
 NetworkMap* ForbiddenNodesToAdd;
-MemberInNetwork* MyMemberBuffer;
 
 int network_coding_on = FALSE;
 /*
@@ -121,7 +124,7 @@ jstring Java_com_example_adhocktest_Routing_RefreshNetworkMapJNI(JNIEnv* env1, j
 void RefreshNetworkMap(NetworkMap* network_to_refresh);
 MemberInNetwork* GetNextHop(NetworkMap* network_to_search ,MemberInNetwork* final_destination);
 int IsNodeForbidden(char* ip_to_check);
-void AddMsgToBuffer(MemberInNetwork* MemberBuffer, const char* msg,int msg_indx,int msg_len, char* target_ip);
+//void AddMsgToBuffer(MemberInNetwork* MemberBuffer, const char* msg,int msg_indx,int msg_len, char* target_ip);
 int IsHelloMsg(char* msg);
 char* ExtractNextHopFromHeader(char *msg);
 char* ExtractTargetFromHeader(char *msg);
@@ -210,23 +213,28 @@ Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1,
 			return -1;
 	}
 	strcpy(ForbiddenNodesToAdd->node_base_ip,"ForbiddenNodesToAdd");
-	ForbiddenNodesToAdd->num_of_nodes=1;
-	ForbiddenNodesToAdd->FirstMember = (MemberInNetwork*)malloc(sizeof(MemberInNetwork));
-	ForbiddenNodesToAdd->FirstMember->node_ip = (char*)malloc(16*sizeof(char));
-	if (strcmp(MyNetworkMap->node_base_ip , "192.168.2.96")==0) {
-		strcpy(ForbiddenNodesToAdd->FirstMember->node_ip,"192.168.2.207");
+	ForbiddenNodesToAdd->num_of_nodes=0;
+	ForbiddenNodesToAdd->FirstMember=NULL;
+	ForbiddenNodesToAdd->LastNetworkMember=NULL;
+	if (strcmp(MyNetworkMap->node_base_ip , "192.168.2.33")==0) {
+		AddToNetworkMap("192.168.2.22",ForbiddenNodesToAdd);
+		AddToNetworkMap("192.168.2.207",ForbiddenNodesToAdd);
+	} else if (strcmp(MyNetworkMap->node_base_ip ,"192.168.2.96")==0) {
+		AddToNetworkMap("192.168.2.207",ForbiddenNodesToAdd);
+	} else if (strcmp(MyNetworkMap->node_base_ip ,"192.168.2.22")==0) {
+		AddToNetworkMap("192.168.2.33",ForbiddenNodesToAdd);
 	} else if (strcmp(MyNetworkMap->node_base_ip ,"192.168.2.207")==0) {
-		strcpy(ForbiddenNodesToAdd->FirstMember->node_ip,"192.168.2.96");
+		AddToNetworkMap("192.168.2.33",ForbiddenNodesToAdd);
+		AddToNetworkMap("192.168.2.96",ForbiddenNodesToAdd);
 	}
-	ForbiddenNodesToAdd->FirstMember->NextNode = NULL;
-	ForbiddenNodesToAdd->FirstMember->PrevNode = NULL;
-
-	MyMemberBuffer=(MemberInNetwork*)malloc(sizeof(MemberInNetwork));
-	MyMemberBuffer->msg_buffer=NULL;
 
 	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","InitializeMap(): completed successfully. My IP : [%s]", MyNetworkMap->node_base_ip);
 
 	return 0;
+
+	/*
+	 *   33 <-> 96 <-> 22 <-> 207
+	 */
 }
 
 /*
@@ -288,8 +296,6 @@ int AddToNetworkMap(char* node_ip, NetworkMap * Network_Head){
 	if (temp == NULL) {
 		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): Need to add node with ip :[%s] to network map with base ip : [%s]", node_ip,Network_Head->node_base_ip);
 		temp = (MemberInNetwork*)malloc(sizeof(MemberInNetwork));
-		temp->msg_buffer = NULL;
-		temp->instance_count++;
 		temp->NextNode = NULL;
 		temp->cur_node_distance = 1;
 		temp->node_ip = (char*)malloc(16*sizeof(char));
@@ -462,7 +468,7 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
 void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast, int is_source, int msg_len) {
 
 	int retval;
-	char send_buf[500];
+	char send_buf[BUFLEN];
 	static int msg_index = 0;
 	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): Message is [%s]", message);
 
@@ -559,7 +565,6 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
         jobject thiz)
 {
 	int PORT = 8888;
-	int BUFLEN = 300;
 	int retVal=-1;
 	int is_ignore_msg = 0;
 	int is_forward_msg = 0;
@@ -810,58 +815,58 @@ MemberInNetwork* GetNextHop(NetworkMap* network_to_search ,MemberInNetwork* fina
 
 }
 
-void AddMsgToBuffer(MemberInNetwork* MemberBuffer, const char* msg,int msg_indx, int msg_len, char* target_ip){
-
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): Need to add msg : [%s] with index #%d to [%s]", msg,msg_indx,MemberBuffer->node_ip);
-
-	Buffer* temp;
-	Buffer* search_end;
-
-	temp = (Buffer*)malloc(sizeof(Buffer));
-	if (temp==NULL){
-		__android_log_print(ANDROID_LOG_INFO, "Error","AddMsgToBuffer(): Failed to allocate memory for Buffer... ;");
-		return;
-	}
-	temp->target_ip = (char*)malloc(sizeof(char)*20);
-	if (temp->target_ip==NULL){
-		__android_log_print(ANDROID_LOG_INFO, "Error","AddMsgToBuffer(): Failed to allocate memory for temp->target_ip... ;");
-		free(temp->target_ip);
-		return;
-	}
-
-	strcpy(temp->target_ip,target_ip);
-	temp->was_broadcast = FALSE;
-	temp->msg_indx = msg_indx;
-	temp->next_buf_msg = NULL;
-	temp->msg=(char*)malloc(sizeof(char)*(1+msg_len));
-	if (temp->msg==NULL){
-		__android_log_print(ANDROID_LOG_INFO, "Error_","AddMsgToBuffer(): Failed to allocate memory for msg in buffer... ;");
-		free(temp->target_ip);
-		free(temp);
-		return;
-	}
-	strcpy(temp->msg,msg);
-
-	search_end = MemberBuffer->msg_buffer;
-	if (search_end == NULL){
-		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): Buffer is empty");
-		MemberBuffer->msg_buffer = temp;
-	} else{
-		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): Buffer is not empty - reaching end of buffer list");
-		while (search_end->next_buf_msg != NULL){
-			search_end=search_end->next_buf_msg;
-		}
-		search_end->next_buf_msg = temp;
-	}
-
-	temp = MyMemberBuffer->msg_buffer;
-	while (temp!=NULL) {
-		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c", "AddMsgToBuffer(): [%d:%s]",temp->msg_indx,temp->msg);
-		temp=temp->next_buf_msg;
-	}
-
-
-}
+//void AddMsgToBuffer(MemberInNetwork* MemberBuffer, const char* msg,int msg_indx, int msg_len, char* target_ip){
+//
+//	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): Need to add msg : [%s] with index #%d to [%s]", msg,msg_indx,MemberBuffer->node_ip);
+//
+//	Buffer* temp;
+//	Buffer* search_end;
+//
+//	temp = (Buffer*)malloc(sizeof(Buffer));
+//	if (temp==NULL){
+//		__android_log_print(ANDROID_LOG_INFO, "Error","AddMsgToBuffer(): Failed to allocate memory for Buffer... ;");
+//		return;
+//	}
+//	temp->target_ip = (char*)malloc(sizeof(char)*20);
+//	if (temp->target_ip==NULL){
+//		__android_log_print(ANDROID_LOG_INFO, "Error","AddMsgToBuffer(): Failed to allocate memory for temp->target_ip... ;");
+//		free(temp->target_ip);
+//		return;
+//	}
+//
+//	strcpy(temp->target_ip,target_ip);
+//	temp->was_broadcast = FALSE;
+//	temp->msg_indx = msg_indx;
+//	temp->next_buf_msg = NULL;
+//	temp->msg=(char*)malloc(sizeof(char)*(1+msg_len));
+//	if (temp->msg==NULL){
+//		__android_log_print(ANDROID_LOG_INFO, "Error_","AddMsgToBuffer(): Failed to allocate memory for msg in buffer... ;");
+//		free(temp->target_ip);
+//		free(temp);
+//		return;
+//	}
+//	strcpy(temp->msg,msg);
+//
+//	search_end = MemberBuffer->msg_buffer;
+//	if (search_end == NULL){
+//		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): Buffer is empty");
+//		MemberBuffer->msg_buffer = temp;
+//	} else{
+//		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): Buffer is not empty - reaching end of buffer list");
+//		while (search_end->next_buf_msg != NULL){
+//			search_end=search_end->next_buf_msg;
+//		}
+//		search_end->next_buf_msg = temp;
+//	}
+//
+//	temp = MyMemberBuffer->msg_buffer;
+//	while (temp!=NULL) {
+//		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c", "AddMsgToBuffer(): [%d:%s]",temp->msg_indx,temp->msg);
+//		temp=temp->next_buf_msg;
+//	}
+//
+//
+//}
 
 int IsHelloMsg(char* msg) {
 	if (strstr(msg,HELLO_MSG)==NULL) {

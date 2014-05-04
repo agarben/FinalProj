@@ -22,6 +22,45 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+
+
+/*
+ * 		207		--->	  207	                     	    96	                     	  22                              33                                  TX
+ * 						 207:1																																207:1 send!																					 	                                                                                                                               
+ * 						 207:2                                                                                                                              207:2 send
+ *                       207:3                                                                                                                              207:3 send   
+ *        
+ *                                                                                                                                                        
+ *                                                                                                                                                        
+ *                                                                                                                                                      
+ *                                                                                                                                                        
+ *                                                                                                                                                        
+ *                                                                                                                                                        
+ *      22      --->      207                               96                              22                         	   33                                  TX                   
+ *      			      207:1 XOR                         96:1 XOR                                                                                          207:1+96:1 send                                                                                                                       				
+ *                        207:2 XOR                                                                                                                           207:2 ^send
+ *          
+ *                                                                                                                                                        
+ *                                                                                                                                                        
+ *                                                                                                                                                        
+ *                                                                                                                                                        
+ *                                                                                                                                                        
+ *      33      --->      207                               96                              22                         	   33                                  TX           
+ *                  	206:1 XOR									96:1 XOR                                                                                  207:1+96:2 send
+ *                                                         96:2 XOR 																						  96:2 ^send
+ *                                                                                                                                                        
+ *                                                                                                                                                        
+ *                                                                                                                                                        
+ *                                                                                                                                                        
+ *      96      --->      207                               96                              22                         	   33                                  TX                              
+ *               										
+ *  													   96:1	^XOR																					    96:1 send!
+ * 														   96:2
+ *                                                         96:3
+ * 
+ * 
+ * 
+ */
 public class MainActivity extends Activity implements OnItemSelectedListener {
 	String essid = "BENGAL";
 	AdHocEnabler AHE;
