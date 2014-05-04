@@ -34,6 +34,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	private TextView txt_RX;
 	private TextView tv_ip;
 	private TextView tv_rem_ip;
+	private TextView tv_version;
 	private Button b_send; 
 	private Button b_exit;
 	private Toast toast_my_ip;
@@ -174,7 +175,9 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		txt_RX = (TextView) findViewById(R.id.txt_RX);
 		tv_ip = (TextView) findViewById(R.id.tv_ip);
 		tv_rem_ip = (TextView) findViewById(R.id.tv_rem_ip);
+		tv_version = (TextView) findViewById(R.id.tv_version);
 
+		tv_version.setText("Version 0.0.1");
 		tv_ip.setText("Local ip: " + my_ip);
 
 	}
