@@ -6,7 +6,8 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    tools:context=".MainActivity" >
+    tools:context=".MainActivity" 
+    android:layout_gravity="bottom" >
 
     <TextView
         android:id="@+id/txt_RX"
@@ -57,14 +58,6 @@
         android:layout_marginBottom="17dp"
         android:text="@string/exit" />
 
-    <Spinner
-        android:id="@+id/spinner_select_ip"
-        style="@style/AppBaseTheme"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/txt_RX"
-        android:layout_toRightOf="@+id/textView1" />
-
     <TextView
         android:id="@+id/tv_rem_ip"
         android:layout_width="wrap_content"
@@ -88,5 +81,36 @@
         android:layout_alignParentRight="true"
         android:layout_alignParentTop="true"
         android:text="X.X.X" />
+
+    <FrameLayout
+        android:id="@+id/frameLayout1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/b_exit"
+        android:layout_alignLeft="@+id/txt_RX"
+        android:layout_alignRight="@+id/b_exit"
+        android:layout_below="@+id/txt_RX" >
+
+        <ImageView
+            android:id="@+id/videoFeed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/wooden_bg" />
+
+        <SurfaceView
+            android:id="@+id/VideoPreview"
+            android:layout_width="74dp"
+            android:layout_height="108dp"
+    		android:layout_gravity="bottom" />
+
+    </FrameLayout>
+
+    <Spinner
+        android:id="@+id/spinner_select_ip"
+        style="@style/AppBaseTheme"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/frameLayout1"
+        android:layout_alignTop="@+id/b_exit" />
 
 </RelativeLayout>

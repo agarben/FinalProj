@@ -1,66 +1,43 @@
 package com.example.adhocktest;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
+import android.hardware.Camera;
+import android.hardware.Camera.CameraInfo;
+import android.hardware.Camera.Parameters;
+import android.hardware.Camera.PreviewCallback;
+import android.hardware.Camera.Size;
 import android.util.Log;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.ImageView.ScaleType;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
-
-
-/*
- * 		207		--->	  207	                     	    96	                     	  22                              33                                  TX
- * 						 207:1																																207:1 send!																					 	                                                                                                                               
- * 						 207:2                                                                                                                              207:2 send
- *                       207:3                                                                                                                              207:3 send   
- *        
- *                                                                                                                                                        
- *                                                                                                                                                        
- *                                                                                                                                                      
- *                                                                                                                                                        
- *                                                                                                                                                        
- *                                                                                                                                                        
- *      22      --->      207                               96                              22                         	   33                                  TX                   
- *      			      207:1 XOR                         96:1 XOR                                                                                          207:1+96:1 send                                                                                                                       				
- *                        207:2 XOR                                                                                                                           207:2 ^send
- *          
- *                                                                                                                                                        
- *                                                                                                                                                        
- *                                                                                                                                                        
- *                                                                                                                                                        
- *                                                                                                                                                        
- *      33      --->      207                               96                              22                         	   33                                  TX           
- *                  	206:1 XOR									96:1 XOR                                                                                  207:1+96:2 send
- *                                                         96:2 XOR 																						  96:2 ^send
- *                                                                                                                                                        
- *                                                                                                                                                        
- *                                                                                                                                                        
- *                                                                                                                                                        
- *      96      --->      207                               96                              22                         	   33                                  TX                              
- *               										
- *  													   96:1	^XOR																					    96:1 send!
- * 														   96:2
- *                                                         96:3
- * 
- * 
- * 
- */
 public class MainActivity extends Activity implements OnItemSelectedListener {
 	String essid = "BENGAL";
 	AdHocEnabler AHE;
@@ -79,7 +56,22 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	private Toast toast_my_ip;
 	private Toast toast_sending;
 	
-
+	// video Layout items
+	static ImageView video_feed_view;
+	private SurfaceView video_preview_view;
+	private SurfaceHolder video_preview_surf_holder;
+	private int cameraId = 0;
+	private static Camera camera;
+    boolean Pause = true;
+    static boolean start = true;
+    static boolean finish = true;
+    static boolean CameraOn = false;
+    static byte[] jdata;
+    static byte[] DataIn;
+	static byte[] DataInJpeg;  
+	Size previewSize;
+	int imgQuality = 100;
+	
 	private Handler handler = new Handler(); // TODO: dont forget to delete
 	
 	////// spinner params
@@ -218,8 +210,181 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 
 		tv_version.setText("Version 0.0.1");
 		tv_ip.setText("Local ip: " + my_ip);
+		
+		video_feed_view = (ImageView)findViewById(R.id.videoFeed);
+		video_feed_view.setScaleType(ScaleType.FIT_XY);
+		video_preview_view = (SurfaceView)findViewById(R.id.VideoPreview);
+		video_preview_surf_holder = video_preview_view.getHolder();
+		video_preview_surf_holder.setType(video_preview_surf_holder.SURFACE_TYPE_PUSH_BUFFERS);
+		video_preview_surf_holder.addCallback(surfaceCallback);
+		
 
 	}
+	
+	
+	
+	
+	//Surface setup    
+	  SurfaceHolder.Callback surfaceCallback = new SurfaceHolder.Callback() {
+	      public void surfaceCreated( SurfaceHolder holder )
+	      {
+	    	  Pause = false;
+	    	  String Model=Build.MODEL;
+	    	  if (Model.equals("GT-S5830")) 
+	    		  cameraId=0;
+	    	  else 
+    		  cameraId = findFrontFacingCamera();
+	          camera = Camera.open(cameraId);
+	          camera.setDisplayOrientation(90);
+//	          imageCount = 0;
+
+	          try {
+	              camera.setPreviewDisplay( video_preview_surf_holder );
+	          } catch ( Throwable t ) {
+	              Log.e( "surfaceCallback", "Exception in setPreviewDisplay()", t );
+	          }
+	          Log.e( getLocalClassName(), "END: surfaceCreated" );
+	      }
+	      //What to do on a preview change
+	      public void surfaceChanged( SurfaceHolder holder, int format, int width, int height )
+	      {
+		          if ( camera != null)
+		          {
+		              camera.setPreviewCallback( new PreviewCallback() {
+		
+		                  public void onPreviewFrame( byte[] data, Camera camera ) {
+		                	 if (!Pause){
+		                
+		                  	  
+		                  	  if ( camera != null )
+		                      {
+		                    	  if (DataIn != null){
+		                    		//load incoming image
+		          				  	Bitmap myBitmap =  BitmapFactory.decodeByteArray(DataIn, 0, DataIn.length);
+		          		            	if (myBitmap != null)
+		          		            		video_feed_view.setImageBitmap(myBitmap);
+		          					}
+		                    	  Camera.Parameters parameters = camera.getParameters();
+		                          int imageFormat = parameters.getPreviewFormat();
+		                          Bitmap bitmap = null;
+		                          //Compress to jpeg	
+		                          if ( imageFormat == ImageFormat.NV21 )
+		                          {
+		                              jdata = NV21toJpeg(data);
+		                          }
+		                          else if ( imageFormat == ImageFormat.JPEG || imageFormat == ImageFormat.RGB_565 )
+		                          {
+		                        	  jdata=data;
+		                          }
+		                          //Send the current preview to other user
+		                          if ( jdata != null )
+		                          {
+		                        	  if (start){
+//	                        			  SenderUDP senderUDP = new SenderUDP("192.168.2.255", jdata);                        		  
+//		                        		  if (ip.equals("192.168.2.207")){
+//		                        			  senderUDP.ChangeTargetIp("192.168.2.96");  
+//		                        		  }
+//		                        		  if (ip.equals("192.168.2.96")){
+//		                        			  senderUDP.ChangeTargetIp("192.168.2.207");  
+//		                        		  }
+//			                				try {
+//			                					senderUDP.sendMsg();
+//			                				} catch (IOException e) {
+//			                					e.printStackTrace();
+//			                				}
+//		                        		  
+//		                        		  AppService.ImageCntOut++;
+		                        	  }
+		                          }
+		                      }
+		                  }
+		                }
+		              });
+		              //Setup camera's parameters
+		              Parameters parameters = camera.getParameters();
+		              if ( parameters != null )
+		              {
+		                Camera.Size previewSize=getSmallestPreviewSize(parameters);
+		                  parameters.setPreviewFpsRange(16000, 16000); 
+		                  parameters.setPreviewSize(previewSize.width,previewSize.height);
+		                  camera.setParameters( parameters );
+		                  camera.startPreview();
+		                  }
+		          }
+		      }
+	      public void surfaceDestroyed(SurfaceHolder holder) {
+	          if ( camera != null )
+	          {
+	              camera.stopPreview();
+	              camera.release();
+	              camera = null;
+	          }
+	      }
+	  };
+	  
+	  private int findFrontFacingCamera() {
+			int cameraId = -1;
+			int numberOfCameras = Camera.getNumberOfCameras();
+			for (int i = 0; i < numberOfCameras; i++) {
+				CameraInfo info = new CameraInfo();
+				Camera.getCameraInfo(i, info);
+				if (info.facing == CameraInfo.CAMERA_FACING_BACK) {
+					cameraId = i;
+					break;
+				}
+			}
+			return cameraId;
+		}
+	
+	
+	  byte[] NV21toJpeg(byte[] data){
+			 previewSize = camera.getParameters().getPreviewSize(); 
+			 YuvImage yuvimage=new YuvImage(data, ImageFormat.NV21, previewSize.width, previewSize.height, null);
+			 ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			 yuvimage.compressToJpeg(new Rect(0, 0, previewSize.width, previewSize.height), imgQuality, baos);
+			 return baos.toByteArray();
+		}	
+	
+	//Function that find the smallest preview size
+	private Camera.Size getSmallestPreviewSize(Camera.Parameters parameters) {
+	   Camera.Size result=null;
+	    for (Camera.Size size : parameters.getSupportedPreviewSizes()) {
+	    	if (result == null) {
+	    		result=size;
+	    	}
+	    	else {
+	    		int resultArea=result.width * result.height;
+	    		int newArea=size.width * size.height;
+	    		if (newArea < resultArea) {
+		        	result=size;
+		   			}
+	    	}
+	    }
+	    return(result);  
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	public void initIpSpinner() {
 		ip_array = new ArrayList<String>();
@@ -273,7 +438,6 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	@Override
 	public void onNothingSelected(AdapterView<?> arg0) {
 		// // TODO Auto-generated method stub
-
 	}
 
 }
