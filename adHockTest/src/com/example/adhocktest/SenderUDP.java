@@ -30,6 +30,11 @@ public class SenderUDP {
 		this.ip = new_ip;
 		this.msg = new_msg;
 	}
+	public SenderUDP(String new_ip, byte[] new_msg)
+	{
+		this.ip = new_ip;
+		this.msg = new String(new_msg);
+	}
 	
 	public String sendMsg() throws IOException // TODO: better understand the try throw mechanism
 	{

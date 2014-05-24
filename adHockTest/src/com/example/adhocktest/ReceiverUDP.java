@@ -41,7 +41,7 @@ public class ReceiverUDP extends Thread{
 	
 	
 	public void run(){
-		byte[] buffer = new byte[8000];
+		byte[] buffer = new byte[64000];
 		// open socket
 		
 		try {
@@ -64,7 +64,6 @@ public class ReceiverUDP extends Thread{
 		{	
 			
 			try {
-				
 				if (use_ndk) {
 					final String rx_str = new String(RecvUdpJNI());
 					Log.i("ReceiverUDP.java","String is **: "+rx_str);
@@ -73,10 +72,12 @@ public class ReceiverUDP extends Thread{
 			            	if (rx_str.startsWith("HELLO_FROM<") == true) {
 			            		_routing.processHello(rx_str);
 			            	} else {
-			            		if(!rx_str.startsWith("ignore")){
-				            		tx_RX.clearComposingText();
-				            		tx_RX.setText( rx_str );
-			            		}
+//			            		if(!rx_str.startsWith("ignore")){
+//				            		tx_RX.clearComposingText();
+//				            		tx_RX.setText( rx_str );
+//			            		}
+			            		MainActivity.fps_counter++;
+			            		MainActivity.DataIn = MainActivity.stringToBytesUTFCustom(rx_str);
 			            		
 			            	}
 			            }});

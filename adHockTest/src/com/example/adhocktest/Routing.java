@@ -98,6 +98,8 @@ public class Routing{
         		if (use_ndk) {
 	        		try {
 						Thread.sleep(time_between_ip_broadcasts);
+						Log.i("Routing.java", "FPS: " + MainActivity.fps_counter/(time_between_ip_broadcasts/1000));
+						MainActivity.fps_counter=0;
     					senderUDP.sendMsg();
 					} catch (InterruptedException e1) {
 						// TODO Auto-generated catch block

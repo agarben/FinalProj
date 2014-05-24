@@ -45,7 +45,7 @@
 #define STR_EQUAL 0
 #define STR_NOT_EQUAL 1
 #define HEADER_LEN 200 // TODO: May need to be increased
-#define BUFLEN 300
+#define BUFLEN 64000
 #define MAX_MSGS_IN_BUF 20
 
 /////
@@ -538,14 +538,22 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 			if (temp_member != NULL) {
 				next_hop_ip = temp_member->node_ip;
 				strcpy(send_buf,next_hop_ip);
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "1current sendbuf= <%s>",send_buf);
 				strcat(send_buf,"|");
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "2current sendbuf= <%s>",send_buf);
 				strcat(send_buf,_ip);
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "3current sendbuf= <%s>",send_buf);
 				strcat(send_buf,";XOR{");
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "4current sendbuf= <%s>",send_buf);
 				strcat(send_buf,MyNetworkMap->node_base_ip);
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "5current sendbuf= <%s>",send_buf);
 				strcat(send_buf,"-");
 				sprintf(strstr(send_buf,"-"),"-%d",msg_index++);
-				strcat(send_buf,"}");
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "6current sendbuf= <%s>",send_buf);
+				strcat(send_buf,"}~");
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "7current sendbuf= <%s>",send_buf);
 				strcat(send_buf,message);
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "8current sendbuf= <%s>",send_buf);
 			} else {
 				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): failed to find next hop. Returning");
 			}
@@ -675,7 +683,7 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	}
 
 
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Raw string received: <%s>",buf);
+	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Raw1 string received: <%s>",buf);
 
 	//if received successfully , close socket
 	if (is_ignore_msg == TRUE) {
@@ -683,7 +691,12 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	} else if (is_forward_msg) {
 		return (*env1)->NewStringUTF(env1, return_str);
 	} else {
-		return (*env1)->NewStringUTF(env1, buf);
+		strstrptr = strstr(buf,"~");
+		if (strstrptr != NULL) {
+			return (*env1)->NewStringUTF(env1, strstrptr+1);
+		} else {
+			return (*env1)->NewStringUTF(env1, buf);
+		}
 	}
 }
 

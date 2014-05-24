@@ -2,6 +2,8 @@ package com.example.adhocktest;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -70,7 +72,9 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
     static byte[] DataIn;
 	static byte[] DataInJpeg;  
 	Size previewSize;
-	int imgQuality = 100;
+	int imgQuality = 60;
+	int debug_video = 0;
+	static int fps_counter=0;
 	
 	private Handler handler = new Handler(); // TODO: dont forget to delete
 	
@@ -78,7 +82,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	public Spinner ip_spinner;
 	List<String> ip_array;
 	public ArrayAdapter<String> adapter;
-	private String target_ip;
+	private String target_ip = "192.168.2.255";
 
 	////// pointers to instances of other objects of the app
 	private Routing routing;
@@ -260,10 +264,13 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		                      {
 		                    	  if (DataIn != null){
 		                    		//load incoming image
-		          				  	Bitmap myBitmap =  BitmapFactory.decodeByteArray(DataIn, 0, DataIn.length);
-		          		            	if (myBitmap != null)
-		          		            		video_feed_view.setImageBitmap(myBitmap);
-		          					}
+									Bitmap myBitmap =  BitmapFactory.decodeByteArray(DataIn, 0, DataIn.length);
+									if (myBitmap != null){
+										video_feed_view.setImageBitmap(myBitmap);
+									}
+		                    	  }
+
+		                    	
 		                    	  Camera.Parameters parameters = camera.getParameters();
 		                          int imageFormat = parameters.getPreviewFormat();
 		                          Bitmap bitmap = null;
@@ -280,19 +287,27 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		                          if ( jdata != null )
 		                          {
 		                        	  if (start){
-//	                        			  SenderUDP senderUDP = new SenderUDP("192.168.2.255", jdata);                        		  
-//		                        		  if (ip.equals("192.168.2.207")){
-//		                        			  senderUDP.ChangeTargetIp("192.168.2.96");  
-//		                        		  }
-//		                        		  if (ip.equals("192.168.2.96")){
-//		                        			  senderUDP.ChangeTargetIp("192.168.2.207");  
-//		                        		  }
-//			                				try {
-//			                					senderUDP.sendMsg();
-//			                				} catch (IOException e) {
-//			                					e.printStackTrace();
-//			                				}
-//		                        		  
+		                        		 // if (target_ip != "192.168.2.255") {
+		                        			  
+		                        			if (1==1){  
+		                        				String jdata_str = bytesToStringUTFCustom(jdata);
+		                        				if (target_ip != "192.168.2.255") {
+			                        				 SenderUDP senderUDP = new SenderUDP(target_ip, jdata_str);   
+						                				try {
+						                					senderUDP.sendMsg();
+						                					Thread.sleep(50);
+						                				} catch (IOException e) {
+						                					e.printStackTrace();
+						                				} catch (InterruptedException e) {
+															// TODO Auto-generated catch block
+															e.printStackTrace();
+														}
+						                				
+						                				debug_video++;
+		                        				}	
+		                        			}
+				                				
+		                        		//  }
 //		                        		  AppService.ImageCntOut++;
 		                        	  }
 		                          }
@@ -440,4 +455,24 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		// // TODO Auto-generated method stub
 	}
 
+	public static byte[] stringToBytesUTFCustom(String str) {
+		 byte[] b = new byte[str.length() << 1];
+		 for(int i = 0; i < str.length(); i++) {
+		  char strChar = str.charAt(i);
+		  int bpos = i << 1;
+		  b[bpos] = (byte) ((strChar&0xFF00)>>8);
+		  b[bpos + 1] = (byte) (strChar&0x00FF); 
+		 }
+		 return b;
+		}
+	public static String bytesToStringUTFCustom(byte[] bytes) {
+		 char[] buffer = new char[bytes.length >> 1];
+		 for(int i = 0; i < buffer.length; i++) {
+		  int bpos = i << 1;
+		  char c = (char)(((bytes[bpos]&0x00FF)<<8) + (bytes[bpos+1]&0x00FF));
+		  buffer[i] = c;
+		 }
+		 return new String(buffer);
+		}
+	
 }
