@@ -607,7 +607,8 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 
 	if (bind(sockfd, (struct sockaddr* ) &my_addr, sizeof(my_addr))==-1) {
 		free(buf);
-		return (*env1)->NewStringUTF(env1, "bind");
+		__android_log_print(ANDROID_LOG_INFO, "Error", "RecvUdpJNI() Failed to bind");
+		return (*env1)->NewStringUTF(env1, "ignore");
 	}
 
 	///////////
@@ -616,7 +617,8 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	//try to receive
 	int retval = recvfrom(sockfd, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen);
 	if (retval==-1) {
-		return (*env1)->NewStringUTF(env1, "errRecv");
+		__android_log_print(ANDROID_LOG_INFO, "Error",  "RecvUdpJNI() Failed to recvfrom()");
+		return (*env1)->NewStringUTF(env1, "ignore");
 	} else {
 		buf[retval] = '\0';
 	}
@@ -695,7 +697,7 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 		if (strstrptr != NULL) {
 			return (*env1)->NewStringUTF(env1, strstrptr+1);
 		} else {
-			return (*env1)->NewStringUTF(env1, buf);
+			return (*env1)->NewStringUTF(env1, buf); //TODO: This may be used as a "not a picture" mechanism
 		}
 	}
 }

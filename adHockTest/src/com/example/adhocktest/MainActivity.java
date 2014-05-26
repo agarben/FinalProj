@@ -18,6 +18,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
+import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.hardware.Camera;
@@ -75,7 +76,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
     static byte[] DataIn;
 	static byte[] DataInJpeg;  
 	Size previewSize;
-	int imgQuality = 20;
+	int imgQuality = 60;
 	int debug_video = 0;
 	public static int fps_counter=0;
 	
@@ -287,7 +288,10 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		                    		//load incoming image
 									Bitmap myBitmap =  BitmapFactory.decodeByteArray(DataIn, 0, DataIn.length);
 									if (myBitmap != null){
-										video_feed_view.setImageBitmap(myBitmap);
+										Matrix mat = new Matrix();
+										mat.postRotate(90);
+										Bitmap myBitmapRotated = Bitmap.createBitmap(myBitmap, 0, 0, myBitmap.getWidth(), myBitmap.getHeight(), mat, true);
+										video_feed_view.setImageBitmap(myBitmapRotated);
 									}
 		                    	  }
 
@@ -316,7 +320,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 			                        				 SenderUDP senderUDP = new SenderUDP(target_ip, jdata_str);   
 						                				try {
 						                					senderUDP.sendMsg();
-						                					Thread.sleep(50); // TODO: Check this value
+						                					Thread.sleep(2); // TODO: Check this value
 						                				} catch (IOException e) {
 						                					e.printStackTrace();
 						                				} catch (InterruptedException e) {
