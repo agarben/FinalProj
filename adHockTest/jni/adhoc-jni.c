@@ -460,7 +460,7 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
 	const char *_ip = (*env)->GetStringUTFChars(env, ip, 0);
 	const char *message = (*env)->GetStringUTFChars(env, j_message, 0);   // Message to be sent
 
-	SendUdpJNI(_ip,port,message,is_broadcast,1,strlen(message));
+	SendUdpJNI(_ip,port,message,is_broadcast,TRUE,strlen(message));
 	(*env)->ReleaseStringUTFChars(env,j_message,message);
 	(*env)->ReleaseStringUTFChars(env,ip,_ip);
 }
@@ -538,22 +538,17 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 			if (temp_member != NULL) {
 				next_hop_ip = temp_member->node_ip;
 				strcpy(send_buf,next_hop_ip);
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "1current sendbuf= <%s>",send_buf);
 				strcat(send_buf,"|");
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "2current sendbuf= <%s>",send_buf);
 				strcat(send_buf,_ip);
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "3current sendbuf= <%s>",send_buf);
 				strcat(send_buf,";XOR{");
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "4current sendbuf= <%s>",send_buf);
 				strcat(send_buf,MyNetworkMap->node_base_ip);
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "5current sendbuf= <%s>",send_buf);
 				strcat(send_buf,"-");
 				sprintf(strstr(send_buf,"-"),"-%d",msg_index++);
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "6current sendbuf= <%s>",send_buf);
-				strcat(send_buf,"}~");
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "7current sendbuf= <%s>",send_buf);
+				strcat(send_buf,"}");
+				if (is_source == TRUE) {
+					strcat(send_buf,"~");
+				}
 				strcat(send_buf,message);
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "8current sendbuf= <%s>",send_buf);
 			} else {
 				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): failed to find next hop. Returning");
 			}
@@ -566,6 +561,9 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto() Success (retval=%d messge='%s' size=%d ip=%s", retval,send_buf,strlen(send_buf),_ip);
 		}
 	}
+	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto() going to close socket"); // TODO:Delete
+	close(sock_fd);
+	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto() returning from function after closing socket"); // TODO:Delete
 }
 
 jstring
@@ -577,7 +575,7 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	int is_ignore_msg = 0;
 	int is_forward_msg = 0;
 
-	char return_str[300];
+	char return_str[BUFLEN+30];
 	char* next_hop_from_header;
 	char* target_from_header;
 
@@ -664,8 +662,10 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 				}
 
 				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): target_ip extracted before calling SendUdpJNI: <%s>",target_from_header);
-				SendUdpJNI(target_from_header,PORT,strstrptr+1,1,0,strlen(strstrptr+1)); // TODO: When we add XOR we have to use the message length integer instead of strlen()
-				sprintf(return_str, "forwarding message [%s]",buf);
+				SendUdpJNI(target_from_header,PORT,strstrptr+1,1,FALSE,strlen(strstrptr+1)); // TODO: When we add XOR we have to use the message length integer instead of strlen()
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Back from forwarding1");
+				sprintf(return_str, "forwarding message [%s]",buf); // TODO : Check if we can bring it back
+				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Back from forwarding2");
 
 			} else { 	 						// I am neither the next hop or target
 				is_ignore_msg = TRUE;
@@ -689,7 +689,7 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	if (is_ignore_msg == TRUE) {
 		return (*env1)->NewStringUTF(env1, "ignore"); // return ignore
 	} else if (is_forward_msg) {
-		return (*env1)->NewStringUTF(env1, return_str);
+		return (*env1)->NewStringUTF(env1, "ignore"); // TODO: Make this return some forward feedback
 	} else {
 		strstrptr = strstr(buf,"~");
 		if (strstrptr != NULL) {

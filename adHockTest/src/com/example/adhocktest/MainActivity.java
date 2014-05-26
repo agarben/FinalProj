@@ -53,8 +53,11 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	private TextView tv_ip;
 	private TextView tv_rem_ip;
 	private TextView tv_version;
+	private static TextView tv_fps_in;
+	
 	private Button b_send; 
 	private Button b_exit;
+	private Button b_start_stop;
 	private Toast toast_my_ip;
 	private Toast toast_sending;
 	
@@ -65,16 +68,16 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	private int cameraId = 0;
 	private static Camera camera;
     boolean Pause = true;
-    static boolean start = true;
+    static boolean start = false;
     static boolean finish = true;
     static boolean CameraOn = false;
     static byte[] jdata;
     static byte[] DataIn;
 	static byte[] DataInJpeg;  
 	Size previewSize;
-	int imgQuality = 60;
+	int imgQuality = 20;
 	int debug_video = 0;
-	static int fps_counter=0;
+	public static int fps_counter=0;
 	
 	private Handler handler = new Handler(); // TODO: dont forget to delete
 	
@@ -128,6 +131,21 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 			}
 
 		});
+		
+		b_start_stop.setOnClickListener(new View.OnClickListener() {
+
+			@Override
+			public void onClick(View v) {
+				
+				if (b_start_stop.getText().equals("Start")) {
+					StartBroadcastingVideo();
+				} else {
+					StopBroadcastingVideo();
+				}
+			}
+
+		});
+		
 		b_exit.setOnClickListener(new View.OnClickListener() {
 
 			@Override
@@ -193,6 +211,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	
 	public void adapterRem(String str_to_rem) {
 
+		Log.i("MainActivity.java","Routing: Need to remove "+str_to_rem+", adapter count = "+adapter.getCount());
 		final String final_str = str_to_rem;
 		handler.post(new Runnable(){
 			public void run() {
@@ -200,17 +219,19 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 				adapter.notifyDataSetChanged();
 			}
 		});
-		Log.i("MainActivity.java","Routing: Need to remove "+str_to_rem);
+
 	}
 	
 	public void initLayoutPointers(){
 		b_send = (Button) findViewById(R.id.b_send);
 		b_exit = (Button) findViewById(R.id.b_exit);
+		b_start_stop = (Button) findViewById(R.id.b_start_stop);
 		
 		txt_RX = (TextView) findViewById(R.id.txt_RX);
 		tv_ip = (TextView) findViewById(R.id.tv_ip);
 		tv_rem_ip = (TextView) findViewById(R.id.tv_rem_ip);
 		tv_version = (TextView) findViewById(R.id.tv_version);
+		tv_fps_in = (TextView) findViewById(R.id.textView2);
 
 		tv_version.setText("Version 0.0.1");
 		tv_ip.setText("Local ip: " + my_ip);
@@ -295,7 +316,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 			                        				 SenderUDP senderUDP = new SenderUDP(target_ip, jdata_str);   
 						                				try {
 						                					senderUDP.sendMsg();
-						                					Thread.sleep(50);
+						                					Thread.sleep(50); // TODO: Check this value
 						                				} catch (IOException e) {
 						                					e.printStackTrace();
 						                				} catch (InterruptedException e) {
@@ -475,4 +496,24 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		 return new String(buffer);
 		}
 	
+	public void SetTargetIp(String new_ip) {
+		target_ip = new_ip;
+		tv_rem_ip.setText("Target ip: " + target_ip);
+	}
+	public void StopBroadcastingVideo() {
+		start = false;
+		b_start_stop.setText("Start");
+	}
+	public void StartBroadcastingVideo() {
+		if ( target_ip != "XX.XX.XX.XX") {
+			start = true;
+			b_start_stop.setText("Stop");
+		} else {
+			// TODO: Add toast error
+		}
+	}
+	public static void RefreshFpsTextView(long fps_in) {
+		Log.i("MainActivity.java", "FPS: " + fps_in);
+		tv_fps_in.setText("FPS:"+fps_in);
+	}
 }

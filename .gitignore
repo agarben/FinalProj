@@ -6,3 +6,8 @@
 *.so
 *.class
 *.class
+adHockTest/obj/local/armeabi/objs-debug/adhoc-jni/adhoc-jni.o.d
+*.png
+adHockTest/res/drawable-mdpi/ic_launcher.png
+*.properties
+*.setup

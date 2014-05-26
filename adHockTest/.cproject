@@ -31,6 +31,17 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<fileInfo id="com.android.toolchain.gcc.457243969.1461522550" name="adhoc-jni.c" rcbsApplicability="disable" resourcePath="jni/adhoc-jni.c" toolsToInvoke="com.android.gcc.compiler.21678686.2027535335">
+						<tool id="com.android.gcc.compiler.21678686.2027535335" name="Android GCC Compiler" superClass="com.android.gcc.compiler.21678686">
+							<option id="com.android.gcc.option.includePath.1000032880" superClass="com.android.gcc.option.includePath" valueType="includePath">
+								<listOptionValue builtIn="false" value="&quot;C:\Users\bena\android_dev\ndk\toolchains\arm-linux-androideabi-4.6\prebuilt\windows-x86_64\lib\gcc\arm-linux-androideabi\4.6\include&quot;"/>
+								<listOptionValue builtIn="false" value="&quot;C:\Users\bena\android_dev\ndk\toolchains\arm-linux-androideabi-4.6\prebuilt\windows-x86_64\lib\gcc\arm-linux-androideabi\4.6\include-fixed&quot;"/>
+								<listOptionValue builtIn="false" value="../jni"/>
+								<listOptionValue builtIn="false" value="&quot;C:\Users\bena\android_dev\ndk\platforms\android-18\arch-arm\usr\include&quot;"/>
+							</option>
+							<inputType id="com.android.gcc.inputType.2018991905" superClass="com.android.gcc.inputType"/>
+						</tool>
+					</fileInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="jni"/>
 					</sourceEntries>

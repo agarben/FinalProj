@@ -98,8 +98,13 @@ public class Routing{
         		if (use_ndk) {
 	        		try {
 						Thread.sleep(time_between_ip_broadcasts);
-						Log.i("Routing.java", "FPS: " + MainActivity.fps_counter/(time_between_ip_broadcasts/1000));
-						MainActivity.fps_counter=0;
+						handler.post(new Runnable(){
+							public void run() {
+								long fps = MainActivity.fps_counter/(time_between_ip_broadcasts/1000);
+								MainActivity.RefreshFpsTextView(fps);
+								MainActivity.fps_counter=0;
+							}
+				    	});
     					senderUDP.sendMsg();
 					} catch (InterruptedException e1) {
 						// TODO Auto-generated catch block
@@ -183,6 +188,16 @@ public class Routing{
 		    	});
 			}
 		}
+		Log.i("MainActivity.java","Routing: adapter count is "+_mActivity.adapter.getCount());
+		if (_mActivity.adapter.getCount() == 0) {
+			handler.post(new Runnable(){
+				public void run() {
+			    	_mActivity.SetTargetIp("XX.XX.XX.XX");
+			    	_mActivity.StopBroadcastingVideo();
+				}
+	    	});
+		}
+			
 	}
 //	
 //	void RefreshRemover(String MemberToCheck, int member_index, String[] MemberListArray) {
