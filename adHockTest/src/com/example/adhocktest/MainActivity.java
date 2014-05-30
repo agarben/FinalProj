@@ -76,9 +76,10 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
     static byte[] DataIn;
 	static byte[] DataInJpeg;  
 	Size previewSize;
-	int imgQuality = 60;
+	int imgQuality = 40;
 	int debug_video = 0;
 	public static int fps_counter=0;
+	public static long fps;
 	
 	private Handler handler = new Handler(); // TODO: dont forget to delete
 	
@@ -121,7 +122,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 			public void onClick(View v) {
 				String newTXmsg = GetTextTX();
 				ClearTextTX();
-				SenderUDP senderUDP = new SenderUDP(target_ip, newTXmsg);
+				SenderUDP senderUDP = new SenderUDP(target_ip, newTXmsg, 1);
 
 				try {
 					senderUDP.sendMsg();
@@ -284,7 +285,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		                  	  
 		                  	  if ( camera != null )
 		                      {
-		                    	  if (DataIn != null){
+		                    	  if (DataIn != null && fps != 0){
 		                    		//load incoming image
 									Bitmap myBitmap =  BitmapFactory.decodeByteArray(DataIn, 0, DataIn.length);
 									if (myBitmap != null){
@@ -293,7 +294,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 										Bitmap myBitmapRotated = Bitmap.createBitmap(myBitmap, 0, 0, myBitmap.getWidth(), myBitmap.getHeight(), mat, true);
 										video_feed_view.setImageBitmap(myBitmapRotated);
 									}
-		                    	  }
+		                    	  } 
 
 		                    	
 		                    	  Camera.Parameters parameters = camera.getParameters();
@@ -317,7 +318,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		                        			if (1==1){  
 		                        				String jdata_str = bytesToStringUTFCustom(jdata);
 		                        				if (target_ip != "192.168.2.255") {
-			                        				 SenderUDP senderUDP = new SenderUDP(target_ip, jdata_str);   
+			                        				 SenderUDP senderUDP = new SenderUDP(target_ip, jdata_str, 0);   
 						                				try {
 						                					senderUDP.sendMsg();
 						                					Thread.sleep(2); // TODO: Check this value
@@ -519,5 +520,9 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	public static void RefreshFpsTextView(long fps_in) {
 		Log.i("MainActivity.java", "FPS: " + fps_in);
 		tv_fps_in.setText("FPS:"+fps_in);
+		fps = fps_in;
+		if (fps_in == 0) {
+			video_feed_view.setImageResource(R.drawable.wooden_bg);
+		}
 	}
 }

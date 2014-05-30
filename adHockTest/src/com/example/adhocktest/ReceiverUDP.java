@@ -70,17 +70,15 @@ public class ReceiverUDP extends Thread{
 					handler.post(new Runnable(){
 						public void run() {
 			            	if (rx_str.startsWith("HELLO_FROM<") == true) { // TODO: And not and not FORWARD
-			            		_routing.processHello(rx_str);
+			            		_routing.processHello(rx_str.substring(1));
 			            	} else if (rx_str.startsWith("ignore")) {
-//			            		if(!rx_str.startsWith("ignore")){
-//				            		tx_RX.clearComposingText();
-//				            		tx_RX.setText( rx_str );
-//			            		}
-			            	} else {
-								Log.i("ReceiverUDP.java","FPSlog string is: "+rx_str); // TODO: Delete this log
+			            	} else if (rx_str.startsWith("~")) {
 			            		MainActivity.fps_counter++;
-			            		MainActivity.DataIn = MainActivity.stringToBytesUTFCustom(rx_str);
+			            		MainActivity.DataIn = MainActivity.stringToBytesUTFCustom(rx_str.substring(1));
 			            		
+			            	} else if (rx_str.startsWith("!")) {
+			            			tx_RX.clearComposingText();
+				            		tx_RX.setText( rx_str.substring(1) );
 			            	}
 			            }});
 				} else {

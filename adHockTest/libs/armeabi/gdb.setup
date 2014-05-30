@@ -1,2 +1,2 @@
 set solib-search-path ./obj/local/armeabi
-directory C:/Users/bena/android_dev/ndk/platforms/android-18/arch-arm/usr/include jni C:/Users/bena/android_dev/ndk/sources/cxx-stl/system
+directory C:/Users/bena/android_dev/ndk/platforms/android-19/arch-arm/usr/include jni C:/Users/bena/android_dev/ndk/sources/cxx-stl/system

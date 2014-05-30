@@ -11,3 +11,5 @@ adHockTest/obj/local/armeabi/objs-debug/adhoc-jni/adhoc-jni.o.d
 adHockTest/res/drawable-mdpi/ic_launcher.png
 *.properties
 *.setup
+*.d
+*.class
