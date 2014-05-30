@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-
+#include <time.h>
 
 // TODO: Keep trying to restart network interface if it doesnt work
 
@@ -47,9 +47,6 @@
 #define HEADER_LEN 200 // TODO: May need to be increased
 #define BUFLEN 64000
 #define MAX_MSGS_IN_BUF 20
-#define IS_TXT 1
-#define IS_IMG 0
-#define DONTCARE 2
 
 /////
 //DEFINE MEMBER IN NETWORK
@@ -119,8 +116,8 @@ int UpdateNodeTimer(MemberInNetwork* Node_to_update, int Countdown);
 int AddToNetworkMap(char* node_ip,NetworkMap * Network_Head);
 int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* member_to_remove, int network_is_members_list);
 int DoesNodeExist(char* ip_to_check, NetworkMap* Network_to_check);
-void Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env, jobject thiz, jstring ip,jint port, jstring message, jint is_broadcast, int is_txt_or_img);
-void SendUdpJNI(const char* ip, int port, const char* message, int is_broadcast, int is_source, int msg_len, int is_txt_or_img);
+void Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env, jobject thiz, jstring ip,jint port, jstring message, jint is_broadcast);
+void SendUdpJNI(const char* ip, int port, const char* message, int is_broadcast, int is_source, int msg_len);
 jstring Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz);
 void ProcessHelloMsg(char* buf,int buf_length,NetworkMap* network_to_add_to);
 jstring Java_com_example_adhocktest_Routing_RefreshNetworkMapJNI(JNIEnv* env1, jobject thiz);
@@ -456,18 +453,18 @@ int DoesNodeExist(char* ip_to_check, NetworkMap* Network_to_check){
 
 void
 Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
-                                                  jobject thiz, jstring ip,jint port, jstring j_message, jint is_broadcast, int is_txt_or_img)
+                                                  jobject thiz, jstring ip,jint port, jstring j_message, jint is_broadcast)
 {
 
 	const char *_ip = (*env)->GetStringUTFChars(env, ip, 0);
 	const char *message = (*env)->GetStringUTFChars(env, j_message, 0);   // Message to be sent
 
-	SendUdpJNI(_ip,port,message,is_broadcast,TRUE,strlen(message), is_txt_or_img);
+	SendUdpJNI(_ip,port,message,is_broadcast,TRUE,strlen(message));
 	(*env)->ReleaseStringUTFChars(env,j_message,message);
 	(*env)->ReleaseStringUTFChars(env,ip,_ip);
 }
 
-void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast, int is_source, int msg_len, int is_txt_or_img) {
+void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast, int is_source, int msg_len) {
 
 	int retval;
 	char send_buf[BUFLEN];
@@ -548,11 +545,7 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 				sprintf(strstr(send_buf,"-"),"-%d",msg_index++);
 				strcat(send_buf,"}");
 				if (is_source == TRUE) {
-					if (is_txt_or_img == IS_IMG) {
 						strcat(send_buf,"~");
-					} else if (is_txt_or_img == IS_TXT) {
-						strcat(send_buf,"!");
-					}
 				}
 				strcat(send_buf,message);
 			} else {
@@ -668,7 +661,7 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 				}
 
 				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): target_ip extracted before calling SendUdpJNI: <%s>",target_from_header);
-				SendUdpJNI(target_from_header,PORT,strstrptr+1,1,FALSE,strlen(strstrptr+1), DONTCARE); // TODO: When we add XOR we have to use the message length integer instead of strlen()
+				SendUdpJNI(target_from_header,PORT,strstrptr+1,1,FALSE,strlen(strstrptr+1)); // TODO: When we add XOR we have to use the message length integer instead of strlen()
 				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Back from forwarding1");
 				sprintf(return_str, "forwarding message [%s]",buf); // TODO : Check if we can bring it back
 				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Back from forwarding2");
@@ -698,10 +691,6 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 		return (*env1)->NewStringUTF(env1, "ignore"); // TODO: Make this return some forward feedback
 	} else {
 		strstrptr = strstr(buf,"}~"); 	// first try to check if this is an image
-		if (strstrptr == NULL) {
-			strstrptr = strstr(buf,"}!"); // if it wasnt an image check if its txt
-		}
-
 		if (strstrptr == NULL) {		// if its not image nor text just return something
 			return (*env1)->NewStringUTF(env1, buf);
 		} else {

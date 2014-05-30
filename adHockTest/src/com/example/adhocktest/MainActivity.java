@@ -50,13 +50,11 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	private String my_ip;
 
 	////// Layout items
-	private TextView txt_RX;
 	private TextView tv_ip;
 	private TextView tv_rem_ip;
 	private TextView tv_version;
 	private static TextView tv_fps_in;
 	
-	private Button b_send; 
 	private Button b_exit;
 	private Button b_start_stop;
 	private Toast toast_my_ip;
@@ -116,23 +114,6 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		// Layout items
 		/////////////////////////
 		initLayoutPointers();
-		b_send.setOnClickListener(new View.OnClickListener() {
-
-			@Override
-			public void onClick(View v) {
-				String newTXmsg = GetTextTX();
-				ClearTextTX();
-				SenderUDP senderUDP = new SenderUDP(target_ip, newTXmsg, 1);
-
-				try {
-					senderUDP.sendMsg();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-				toast_sending.show();
-			}
-
-		});
 		
 		b_start_stop.setOnClickListener(new View.OnClickListener() {
 
@@ -169,18 +150,8 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	///////////////////
 	// Function implementations
 	//////////////////
-	public String GetTextTX() {
-		EditText mEdit = (EditText) findViewById(R.id.txt_TX);
-		return mEdit.getText().toString();
-	}
-
-	public void ClearTextTX() {
-		EditText mEdit = (EditText) findViewById(R.id.txt_TX);
-		mEdit.setText("");
-	}
-
 	public void StartListening() {
-		ReceiverUDP receiverUDP = new ReceiverUDP(this.txt_RX, this.routing);
+		ReceiverUDP receiverUDP = new ReceiverUDP(this.routing); // todo: text is no longer relevant, delete it
 		receiverUDP.start();
 	}
 
@@ -225,11 +196,9 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	}
 	
 	public void initLayoutPointers(){
-		b_send = (Button) findViewById(R.id.b_send);
 		b_exit = (Button) findViewById(R.id.b_exit);
 		b_start_stop = (Button) findViewById(R.id.b_start_stop);
 		
-		txt_RX = (TextView) findViewById(R.id.txt_RX);
 		tv_ip = (TextView) findViewById(R.id.tv_ip);
 		tv_rem_ip = (TextView) findViewById(R.id.tv_rem_ip);
 		tv_version = (TextView) findViewById(R.id.tv_version);
@@ -313,15 +282,12 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		                          if ( jdata != null )
 		                          {
 		                        	  if (start){
-		                        		 // if (target_ip != "192.168.2.255") {
-		                        			  
-		                        			if (1==1){  
 		                        				String jdata_str = bytesToStringUTFCustom(jdata);
 		                        				if (target_ip != "192.168.2.255") {
-			                        				 SenderUDP senderUDP = new SenderUDP(target_ip, jdata_str, 0);   
+			                        				 SenderUDP senderUDP = new SenderUDP(target_ip, jdata_str);   
 						                				try {
 						                					senderUDP.sendMsg();
-						                					Thread.sleep(2); // TODO: Check this value
+						                					Thread.sleep(2); // TODO: Check the sleep value value
 						                				} catch (IOException e) {
 						                					e.printStackTrace();
 						                				} catch (InterruptedException e) {
@@ -331,7 +297,6 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 						                				
 						                				debug_video++;
 		                        				}	
-		                        			}
 				                				
 		                        		//  }
 //		                        		  AppService.ImageCntOut++;

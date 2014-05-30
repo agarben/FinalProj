@@ -2,59 +2,18 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:layout_gravity="bottom"
     android:paddingBottom="@dimen/activity_vertical_margin"
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    tools:context=".MainActivity" 
-    android:layout_gravity="bottom" >
-
-    <TextView
-        android:id="@+id/txt_RX"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignLeft="@+id/txt_TX"
-        android:layout_below="@+id/b_send"
-        android:layout_marginTop="60dp" />
-
-    <Button
-        android:id="@+id/b_send"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignBottom="@+id/txt_TX"
-        android:layout_alignTop="@+id/txt_TX"
-        android:layout_toRightOf="@+id/txt_TX"
-        android:text="Send" />
-
-    <EditText
-        android:id="@+id/txt_TX"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_below="@+id/tv_ip"
-        android:layout_marginTop="29dp"
-        android:ems="10"
-        android:text="@string/enter_your_message_" >
-
-        <requestFocus />
-    </EditText>
-
-    <TextView
-        android:id="@+id/textView1"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignLeft="@+id/txt_RX"
-        android:layout_below="@+id/txt_TX"
-        android:layout_marginTop="23dp"
-        android:text="Received message:"
-        android:textAppearance="?android:attr/textAppearanceMedium" />
+    tools:context=".MainActivity" >
 
     <Button
         android:id="@+id/b_exit"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:layout_alignRight="@+id/b_send"
         android:layout_marginBottom="17dp"
         android:text="@string/exit" />
 
@@ -70,7 +29,6 @@
         android:id="@+id/tv_ip"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignLeft="@+id/txt_TX"
         android:layout_alignParentTop="true"
         android:text="XX.XX.XX.XX" />
 
@@ -84,51 +42,46 @@
 
     <FrameLayout
         android:id="@+id/frameLayout1"
-        android:layout_width="259dp"
+        android:layout_width="297dp"
         android:layout_height="216dp"
-        android:layout_above="@+id/b_exit"
-        android:layout_alignLeft="@+id/txt_RX"
-        android:layout_alignRight="@+id/b_exit"
-        android:layout_below="@+id/txt_RX" >
+        android:layout_above="@+id/b_exit" >
 
         <ImageView
             android:id="@+id/videoFeed"
-            android:layout_width="259dp"
-            android:layout_height="216dp"
-            android:src="@drawable/wooden_bg" 
-    		android:layout_gravity="bottom" />
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="bottom"
+            android:src="@drawable/wooden_bg" />
 
         <SurfaceView
             android:id="@+id/VideoPreview"
             android:layout_width="90dp"
             android:layout_height="120dp"
-    		android:layout_gravity="bottom"/>
+            android:layout_gravity="bottom" />
 
         <TextView
             android:id="@+id/textView2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="right" />
-
     </FrameLayout>
-
-    <Spinner
-        android:id="@+id/spinner_select_ip"
-        style="@style/AppBaseTheme"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignLeft="@+id/frameLayout1"
-        android:layout_alignTop="@+id/b_exit" />
 
     <Button
         android:id="@+id/b_start_stop"
         style="?android:attr/buttonStyleSmall"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignBottom="@+id/textView1"
-        android:layout_alignRight="@+id/b_send"
-        android:layout_below="@+id/b_send"
-        android:layout_toRightOf="@+id/txt_TX"
+        android:layout_alignParentRight="true"
+        android:layout_below="@+id/tv_rem_ip"
+        android:layout_marginTop="18dp"
         android:text="Start" />
+
+    <Spinner
+        android:id="@+id/spinner_select_ip"
+        style="@style/AppBaseTheme"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/tv_rem_ip"
+        android:layout_alignTop="@+id/b_start_stop" />
 
 </RelativeLayout>

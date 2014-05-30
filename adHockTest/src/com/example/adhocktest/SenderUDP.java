@@ -9,7 +9,7 @@ import android.util.Log;
 
 public class SenderUDP {
 
-	public native void SendUdpJNI( String ip, int port, String j_message, int is_broadcast, int is_txt_or_img);		
+	public native void SendUdpJNI( String ip, int port, String j_message, int is_broadcast);		
     static {
         System.loadLibrary("adhoc-jni");
     }
@@ -18,7 +18,6 @@ public class SenderUDP {
 	//TODO: ORDER!!! 
 	private String ip;
 	private String msg;
-	private int _is_txt_or_img;
 	
 	private DatagramSocket datagramSocket;
 	private int receiverPort = 8888;
@@ -26,17 +25,15 @@ public class SenderUDP {
 	
 	final int duration = 2;
 
-	public SenderUDP(String new_ip, String new_msg, int is_txt_or_img)
+	public SenderUDP(String new_ip, String new_msg)
 	{
 		this.ip = new_ip;
 		this.msg = new_msg;
-		this._is_txt_or_img = is_txt_or_img;
 	}
-	public SenderUDP(String new_ip, byte[] new_msg, int is_txt_or_img)
+	public SenderUDP(String new_ip, byte[] new_msg)
 	{
 		this.ip = new_ip;
 		this.msg = new String(new_msg);
-		this._is_txt_or_img = is_txt_or_img;
 	}
 	
 	public String sendMsg() throws IOException // TODO: better understand the try throw mechanism
@@ -47,7 +44,7 @@ public class SenderUDP {
 			
 			try {			
 				Log.i("SenderUDP.java","NDK: sending to IPAddress "+ip);
-				SendUdpJNI(ip,receiverPort,msg,1, _is_txt_or_img); // Always broadcast
+				SendUdpJNI(ip,receiverPort,msg,1); // Always broadcast
 			} catch (StackOverflowError e) {
 				Log.i("SenderUDP.java","CAUGHT 00");
 				e.printStackTrace(); 
