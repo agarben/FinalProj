@@ -5,7 +5,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <time.h>
 
 // TODO: Keep trying to restart network interface if it doesnt work
 
@@ -47,6 +46,9 @@
 #define HEADER_LEN 200 // TODO: May need to be increased
 #define BUFLEN 64000
 #define MAX_MSGS_IN_BUF 20
+
+#define RX_PORT 8888
+#define TX_PORT 8888
 
 /////
 //DEFINE MEMBER IN NETWORK
@@ -109,6 +111,7 @@ int network_coding_on = FALSE;
 /*
  *  FUNCTION DECLARATIONS
  */
+void InitializeSockets();
 void GenerateHelloMsg(char* base_string, NetworkMap* network_head);
 jint Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1, jobject thiz,jstring ip_to_init);
 MemberInNetwork* GetNode(char* node_ip_to_check, NetworkMap * Network_Head,int maximum_distance_from_originator);
@@ -135,6 +138,75 @@ SourceList* GetSourceFromString(char* msg);
 /*
  * FUNCTION IMPLEMENTATION
  */
+
+///////////////
+// Global SendUdp Socket
+///////////////
+int sock_fd_tx;
+struct sockaddr_in servaddr_tx;
+int sock_fd_rx;
+struct sockaddr_in servaddr_rx;
+
+void InitializeSockets() {
+
+	int is_broadcast = TRUE; // always broadcast
+	int retval;
+	////////////////
+	/// create socket
+	////////////////
+	if (( sock_fd_tx = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
+		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI(): Cannot create socket, error %d", errno);
+		return;
+	}
+
+	/////////////////
+	// set socket options
+	/////////////////
+	int ret=setsockopt(sock_fd_tx, SOL_SOCKET, SO_BROADCAST, &is_broadcast, sizeof(is_broadcast));
+	if (ret) {
+		close(sock_fd_tx);
+		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI(): Failed to set setsockopt(), error: %d", errno);
+		return;
+	}
+
+	memset((char*)&servaddr_tx, 0, sizeof(servaddr_tx));
+	servaddr_tx.sin_family = AF_INET;
+	servaddr_tx.sin_port = htons(TX_PORT);
+
+	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sock_fd_tx values = %d", sock_fd_tx);
+
+//	if ((inet_aton("192.168.2.255",&servaddr_tx.sin_addr)) == 0) {
+////		free(send_buf);
+//		close(sock_fd_tx);
+//		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI():Cannot decode IP address");
+//		return;
+//	}
+//	servaddr_tx.sin_addr.s_addr |= 0xff000000; // always broadcast!
+	servaddr_tx.sin_addr.s_addr = htonl(INADDR_ANY);
+
+		////////////// RX /////////////////////
+		/////////
+		// Create and bind socket
+		/////////
+		struct sockaddr_in servaddr_rx;
+
+		if ((sock_fd_rx = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1) {
+			int temp = errno;
+			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): socket() call failed. errno : %d ",temp);
+		}
+
+
+		bzero(&servaddr_rx, sizeof(servaddr_rx));
+		servaddr_rx.sin_family = AF_INET;
+		servaddr_rx.sin_port = htons(RX_PORT);
+		servaddr_rx.sin_addr.s_addr = htonl(INADDR_ANY);
+
+		if (bind(sock_fd_rx, (struct sockaddr* ) &servaddr_rx, sizeof(servaddr_rx))==-1) {
+			__android_log_print(ANDROID_LOG_INFO, "Error", "RecvUdpJNI() Failed to bind");
+		}
+}
+
+
 void GenerateHelloMsg(char* base_string, NetworkMap* network_head) {
 
 
@@ -155,12 +227,14 @@ void GenerateHelloMsg(char* base_string, NetworkMap* network_head) {
 //return 1 if node is forbidden
 int IsNodeForbidden(char* ip_to_check){
 
+//	return FALSE;// TODO: Temporary debug , delete this line
+
 	MemberInNetwork* temp;
 	temp = ForbiddenNodesToAdd->FirstMember;
 	while (temp != NULL){
 		if (strcmp(temp->node_ip,ip_to_check)==0){ //match
 			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","IsNodeForbidden(): Node [%s] is in the forbidden list", temp->node_ip);
-			return 1;
+			return TRUE;
 		}
 		else{
 			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","IsNodeForbidden(): Node [%s] is not the node we are looking for ([%s]) in the forbidden list", temp->node_ip, ip_to_check);
@@ -168,7 +242,7 @@ int IsNodeForbidden(char* ip_to_check){
 		}
 	}
 
-	return 0;
+	return FALSE;
 }
 
 
@@ -179,6 +253,7 @@ jint
 Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1,
         jobject thiz,jstring ip_to_init){
 
+	InitializeSockets();
 
 	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","InitializeMap(): Version 30");
 	MyNetworkMap = (NetworkMap*)malloc(sizeof(NetworkMap));
@@ -474,53 +549,33 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 	char* next_hop_ip;
 	char final_dest_ip[20];
 
-	////////////////
-	/// create socket
-	////////////////
-	int sock_fd;
-	struct sockaddr_in servaddr;
-	if (( sock_fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
-		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI(): Cannot create socket");
-		return;
-	}
-
-	/////////////////
-	// set socket options
-	/////////////////
-	int ret=setsockopt(sock_fd, SOL_SOCKET, SO_BROADCAST, &is_broadcast, sizeof(is_broadcast));
-	if (ret) {
-		close(sock_fd);
-		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI(): Failed to set setsockopt()");
-		return;
-	}
-
-	memset((char*)&servaddr, 0, sizeof(servaddr));
-	servaddr.sin_family = AF_INET;
-	servaddr.sin_port = htons(port);
-
-	if ((inet_aton(_ip,&servaddr.sin_addr)) == 0) {
+//	 set ip to sub-net	```````````````````````````work broadcast
+	if ((inet_aton(_ip,&servaddr_tx.sin_addr)) == 0) {
 //		free(send_buf);
-		close(sock_fd);
+		close(sock_fd_tx);
 		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI():Cannot decode IP address");
 		return;
 	}
-	servaddr.sin_addr.s_addr |= 0xff000000; // always broadcast!
+	int _is_broadcast;
 
-
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sock_fd values = %d", sock_fd);
 	////////////////
 	/// send
 	////////////////
 	char hello_message_string[HELLO_MSG_LEN];
 
 	if (strcmp(message, "HELLO_MSG:")==0) {
+
+		_is_broadcast = TRUE;
+		servaddr_tx.sin_addr.s_addr |= 0xff000000; // always broadcast!
+		setsockopt(sock_fd_tx, SOL_SOCKET, SO_BROADCAST, &_is_broadcast, sizeof(_is_broadcast));
+
 		strcpy(hello_message_string,"HELLO_MSG:");
 		strcat(hello_message_string,MyNetworkMap->node_base_ip);
 		strcat(hello_message_string,"(");
 		GenerateHelloMsg(hello_message_string,MyNetworkMap);
 		strcat(hello_message_string,")");
 
-		retval = sendto(sock_fd, hello_message_string, strlen(hello_message_string), 0, (struct sockaddr*)&servaddr, sizeof(servaddr));
+		retval = sendto(sock_fd_tx, hello_message_string, strlen(hello_message_string), 0, (struct sockaddr*)&servaddr_tx, sizeof(servaddr_tx));
 		if ( retval < 0) {
 			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto failed with %d. message was [%s]", errno,hello_message_string);
 		} else {
@@ -530,12 +585,32 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 		/////////////////
 		// Get next hop
 		/////////////////
+
+
+
+
 		strcpy(final_dest_ip,_ip);
 		MemberInNetwork* temp_member = GetNode(final_dest_ip, AllNetworkMembersList, 1);
 		if (temp_member != NULL) {
 			temp_member = GetNextHop(MyNetworkMap,temp_member);
 			if (temp_member != NULL) {
 				next_hop_ip = temp_member->node_ip;
+
+				// send directly to next hop
+				if ((inet_aton(next_hop_ip,&servaddr_tx.sin_addr)) == 0) {
+		//						free(send_buf);
+					close(sock_fd_tx);
+					__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI():Cannot decode IP address");
+					return;
+				}
+				if (is_source) {
+					_is_broadcast = FALSE;
+				} else {
+					_is_broadcast = TRUE;
+					servaddr_tx.sin_addr.s_addr |= 0xff000000; // always broadcast!
+				}
+				setsockopt(sock_fd_tx, SOL_SOCKET, SO_BROADCAST, &_is_broadcast, sizeof(_is_broadcast));
+
 				strcpy(send_buf,next_hop_ip);
 				strcat(send_buf,"|");
 				strcat(send_buf,_ip);
@@ -553,21 +628,20 @@ void SendUdpJNI(const char* _ip, int port, const char* message, int is_broadcast
 			}
 		}
 
-		retval = sendto(sock_fd, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr, sizeof(servaddr));
+		retval = sendto(sock_fd_tx, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr_tx, sizeof(servaddr_tx));
 		if ( retval < 0) {
 			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto failed with %d. message was [%s]", errno,send_buf);
 		} else {
 			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto() Success (retval=%d messge='%s' size=%d ip=%s", retval,send_buf,strlen(send_buf),_ip);
 		}
 	}
-	close(sock_fd);
+//	close(sock_fd_tx); // no longer need to close socket since its global now
 }
 
 jstring
 Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
         jobject thiz)
 {
-	int PORT = 8888;
 	int retVal=-1;
 	int is_ignore_msg = 0;
 	int is_forward_msg = 0;
@@ -576,58 +650,33 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 	char* next_hop_from_header;
 	char* target_from_header;
 
-	/////////
-	// Create and bind socket
-	/////////
-	struct sockaddr_in my_addr, cli_addr;
-	int sockfd, i;
-	socklen_t slen=sizeof(cli_addr);
-	char* buf;
-	char* strstrptr;
-	buf = (char*)malloc(BUFLEN*sizeof(char));
-	for (i=0; i<BUFLEN; i++) {
-		buf[i] = '\0';
-	}
-
-	if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1) {
-		int temp = errno;
-		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): socket() call failed. errno : %d ",temp);
-		free(buf);
-		return (*env1)->NewStringUTF(env1, "socket");
-	}
-
-
-	bzero(&my_addr, sizeof(my_addr));
-	my_addr.sin_family = AF_INET;
-	my_addr.sin_port = htons(PORT);
-	my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-	if (bind(sockfd, (struct sockaddr* ) &my_addr, sizeof(my_addr))==-1) {
-		free(buf);
-		__android_log_print(ANDROID_LOG_INFO, "Error", "RecvUdpJNI() Failed to bind");
-		return (*env1)->NewStringUTF(env1, "ignore");
-	}
 
 	///////////
 	/// Receive UDP packets
 	//////////
 	//try to receive
-	int retval = recvfrom(sockfd, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen);
+	char buf[BUFLEN];
+	char* strstrptr;
+
+	struct sockaddr_in cli_addr;
+	socklen_t slen=sizeof(cli_addr);
+	int retval = recvfrom(sock_fd_rx, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen);
 	if (retval==-1) {
-		__android_log_print(ANDROID_LOG_INFO, "Error",  "RecvUdpJNI() Failed to recvfrom()");
+		__android_log_print(ANDROID_LOG_INFO, "Error",  "RecvUdpJNI() Failed to recvfrom() retval=%d",retval);
+		exit(0); // TODO : Delete
 		return (*env1)->NewStringUTF(env1, "ignore");
 	} else {
 		buf[retval] = '\0';
 	}
 
-	close(sockfd);
+//	close(sock_fd_rx); // no need to close this global socket which is for the entire program
 
 	if (strcmp(inet_ntoa(cli_addr.sin_addr),MyNetworkMap->node_base_ip)==0) {									// MSG is an echo from myself
 		is_ignore_msg = TRUE;
-		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Ignoring echo from myself");
+		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Ignoring echo from myself [%s]",buf);
 	} else if (IsNodeForbidden(inet_ntoa(cli_addr.sin_addr)) == TRUE) {
 		is_ignore_msg = TRUE;
-		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Ignoring message from forbidden node");
+		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Ignoring message from forbidden node [%s]",buf);
 	} else if (IsHelloMsg(buf) == TRUE) {																		// Hello msg
 		is_ignore_msg = TRUE;
 		if (IsNodeForbidden(inet_ntoa(cli_addr.sin_addr)) == TRUE){
@@ -661,7 +710,7 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1,
 				}
 
 				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): target_ip extracted before calling SendUdpJNI: <%s>",target_from_header);
-				SendUdpJNI(target_from_header,PORT,strstrptr+1,1,FALSE,strlen(strstrptr+1)); // TODO: When we add XOR we have to use the message length integer instead of strlen()
+				SendUdpJNI(target_from_header,TX_PORT,strstrptr+1,1,FALSE,strlen(strstrptr+1)); // TODO: When we add XOR we have to use the message length integer instead of strlen()
 				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Back from forwarding1");
 				sprintf(return_str, "forwarding message [%s]",buf); // TODO : Check if we can bring it back
 				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Back from forwarding2");

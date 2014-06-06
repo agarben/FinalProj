@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import android.net.wifi.WifiManager;
@@ -74,12 +75,17 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
     static byte[] DataIn;
 	static byte[] DataInJpeg;  
 	Size previewSize;
-	int imgQuality = 40;
+	int imgQuality = 20;
 	int debug_video = 0;
 	public static int fps_counter=0;
 	public static long fps;
 	
 	private Handler handler = new Handler(); // TODO: dont forget to delete
+	
+
+	Date Date_start = new Date();
+	Date Date_end = new Date();
+	long time_diff_ms;
 	
 	////// spinner params
 	public Spinner ip_spinner;
@@ -216,10 +222,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		
 
 	}
-	
-	
-	
-	
+
 	//Surface setup    
 	  SurfaceHolder.Callback surfaceCallback = new SurfaceHolder.Callback() {
 	      public void surfaceCreated( SurfaceHolder holder )
@@ -247,11 +250,8 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		          if ( camera != null)
 		          {
 		              camera.setPreviewCallback( new PreviewCallback() {
-		
 		                  public void onPreviewFrame( byte[] data, Camera camera ) {
 		                	 if (!Pause){
-		                
-		                  	  
 		                  	  if ( camera != null )
 		                      {
 		                    	  if (DataIn != null && fps != 0){
@@ -264,7 +264,6 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 										video_feed_view.setImageBitmap(myBitmapRotated);
 									}
 		                    	  } 
-
 		                    	
 		                    	  Camera.Parameters parameters = camera.getParameters();
 		                          int imageFormat = parameters.getPreviewFormat();
@@ -274,6 +273,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		                          {
 		                              jdata = NV21toJpeg(data);
 		                          }
+		                          
 		                          else if ( imageFormat == ImageFormat.JPEG || imageFormat == ImageFormat.RGB_565 )
 		                          {
 		                        	  jdata=data;
@@ -282,11 +282,19 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		                          if ( jdata != null )
 		                          {
 		                        	  if (start){
+		                        		  		Date_start = new Date();
 		                        				String jdata_str = bytesToStringUTFCustom(jdata);
+		                        				Date_end = new Date();
+		                        				time_diff_ms = (Date_end.getTime() - Date_start.getTime());
+		                        				Log.i("Timers", "Converting bytesToString took "+time_diff_ms+"ms");
 		                        				if (target_ip != "192.168.2.255") {
 			                        				 SenderUDP senderUDP = new SenderUDP(target_ip, jdata_str);   
 						                				try {
+						                					Date_start = new Date();
 						                					senderUDP.sendMsg();
+					                        				Date_end = new Date();
+					                        				time_diff_ms = (Date_end.getTime() - Date_start.getTime());
+					                        				Log.i("Timers", "Sending time was "+time_diff_ms+"ms");
 						                					Thread.sleep(2); // TODO: Check the sleep value value
 						                				} catch (IOException e) {
 						                					e.printStackTrace();
@@ -294,7 +302,6 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 															// TODO Auto-generated catch block
 															e.printStackTrace();
 														}
-						                				
 						                				debug_video++;
 		                        				}	
 				                				
