@@ -2,21 +2,14 @@ package com.example.adhocktest;
 
 
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketException;
-import java.net.UnknownHostException;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.regex.Pattern;
 
 import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.util.Log;
-import android.widget.Adapter;
 
 public class Routing{
 	public native int InitializeMap( String ip_to_set );	
@@ -27,10 +20,7 @@ public class Routing{
     }
 	private Handler handler = new Handler();
 
-	private int PORT = 8888;
 	private String my_ip;
-	private	DatagramPacket broadcast_ip_packet;
-	private DatagramSocket broadcast_ip_socket;
 	private WifiManager mWifi;
 	private String BROADCAST_IP = "192.168.2.255";
 	private InetAddress InetBroadcastAddress = null;
@@ -46,26 +36,8 @@ public class Routing{
 		_mActivity = mActivity;
 		_ip_time_map = new HashMap<String, Integer>();
 		this.my_ip = ip_to_assign;
-//		//senderUDP = new SenderUDP(BROADCAST_IP,"HELLO_FROM<"+my_ip+">");
 		senderUDP = new SenderUDP(BROADCAST_IP,"HELLO_MSG:"); 
 		InitializeMap(this.my_ip);
-		if (!use_ndk) {
-			try {
-				this.InetBroadcastAddress = InetAddress.getByName(BROADCAST_IP);
-				Log.i("Routing.java","initialized broadcast ip InetAddress");
-				this.broadcast_ip_socket = new DatagramSocket();
-				Log.i("Routing.java","initialized broadcast_ip_socket");
-				this.broadcast_ip_socket.setBroadcast(true);
-				Log.i("Routing.java","set socket to broadcast");	
-				
-			}	catch (UnknownHostException e) {
-				e.printStackTrace();
-			} 
-				catch (SocketException e) {
-				e.printStackTrace();
-			}
-			this.broadcast_ip_packet = new DatagramPacket(this.my_ip.getBytes(), this.my_ip.getBytes().length, this.InetBroadcastAddress, PORT);	
-		} 
 	}
 	
 	/* The function stops/starts the broadcast IP thread: decision = true -> start
@@ -94,42 +66,24 @@ public class Routing{
 //        		updateIpCounter();
         		String NetworkMemberListFromC = RefreshNetworkMapJNI();
         		RefreshAdapter(NetworkMemberListFromC);
-        		
-        		if (use_ndk) {
-	        		try {
-						Thread.sleep(time_between_ip_broadcasts);
-						handler.post(new Runnable(){
-							public void run() {
-								long fps = MainActivity.fps_counter/(time_between_ip_broadcasts/1000);
-								MainActivity.RefreshFpsTextView(fps);
-								MainActivity.fps_counter=0;
-							}
-				    	});
-    					senderUDP.sendMsg();
-					} catch (InterruptedException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					}
-    				catch (IOException e){
-    					e.printStackTrace();
-    				}
-        		} else {
-        			
-        			try{
-						Log.i("Routing.java", "JAVA:Broadcasting my IP " + my_ip);
-						broadcast_ip_socket.send(broadcast_ip_packet);
-						Log.i("Routing.java","device with IP " + my_ip + " waits for " +time_between_ip_broadcasts/1000+" seconds before broadcasting again");
-	        		Thread.sleep(time_between_ip_broadcasts);
-	        		}	catch (IOException e){
-	        				e.printStackTrace();
-	        				Log.i("Routing.java","IOException while broadcasting IP thread");
-	        		}	catch(InterruptedException e){
-	        				e.printStackTrace();
-	        				Log.i("Routing.java","InterruptedException while broadcasting IP thread");
-	        		}
-        		}
+        		try {
+					Thread.sleep(time_between_ip_broadcasts);
+					handler.post(new Runnable(){
+						public void run() {
+							long fps = MainActivity.fps_counter/(time_between_ip_broadcasts/1000);
+							MainActivity.RefreshFpsTextView(fps);
+							MainActivity.fps_counter=0;
+						}
+			    	});
+					senderUDP.sendMsg();
+				} catch (InterruptedException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+				catch (IOException e){
+					e.printStackTrace();
+				}
         	}
-
         }
 	   });
 	

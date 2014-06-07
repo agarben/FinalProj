@@ -1,32 +1,26 @@
 package com.example.adhocktest;
 
-import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.SocketException;
 import java.util.Date;
 
 import android.os.Handler;
 import android.util.Log;
 import android.widget.ArrayAdapter;
-import android.widget.TextView;
 
 public class ReceiverUDP extends Thread{
 	
-	public native String  RecvUdpJNI( );	
+	public native String  RecvUdpJNI(int _is_mng );	
     static {
         System.loadLibrary("adhoc-jni");
     }
     
-	private int port = 8888;
-	private DatagramSocket datagramSocket;
 	public String ReceivedData;
 	static byte[] data;
-	private boolean use_ndk = true;
 
 	Date Date_start = new Date();
 	Date Date_end = new Date();
 	long time_diff_ms = 0;
+	
+	boolean _is_mng;
 	//////////
 	// Interaction with mainactiv
 	//////////
@@ -36,40 +30,26 @@ public class ReceiverUDP extends Thread{
 	
 	Routing _routing;
 	
-	public ReceiverUDP(Routing routing){
+	public ReceiverUDP(Routing routing, boolean is_mng) {
 		_routing  = routing;
+		_is_mng = is_mng;
 	}
 	
 	
 	public void run(){
-		byte[] buffer = new byte[64000];
-		// open socket
-		
-		try {
-			if (!use_ndk) {
-				Log.i("ReceiverUDP.java","JAVA: Opening socket");
-				datagramSocket = new DatagramSocket(port);
-			}
-		} 
-		catch (SocketException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
 		while (1<2)
 		{	
 			
 			try {	
-				if (use_ndk) {	 											// for the moment we only use NDK
 					Log.i("ReceiverUDP.java","NDK:Opening socket and listening");
 					
     		  		Date_start = new Date();
-					final String rx_str = new String(RecvUdpJNI());
+					final String rx_str = new String(RecvUdpJNI((_is_mng) ? 1:0));
     				Date_end = new Date();
     				time_diff_ms = (Date_end.getTime() - Date_start.getTime());
     				Log.i("Timers", "Receiving (and forwarding?) took "+(Date_end.getTime() - Date_start.getTime())+"ms");
     				
-					Log.i("ReceiverUDP.java","String is **: "+rx_str);
+					Log.i("ReceiverUDP.java","String_rx returned from JNI is: "+rx_str);
 					handler.post(new Runnable(){
 						public void run() {
 			            	if (rx_str.startsWith("HELLO_FROM<") == true) { // TODO: And not and not FORWARD
@@ -86,16 +66,6 @@ public class ReceiverUDP extends Thread{
 			    				Log.i("Warning","Received a string that is not Hello message, ignore, or video data.");
 			            	}
 			            }});
-				} else {
-//					Log.i("ReceiverUDP.java","JAVA: Listening to socket");
-//					DatagramPacket receivePacket = new DatagramPacket(buffer,buffer.length);
-//					datagramSocket.receive(receivePacket);
-//					final String strRX = new String(receivePacket.getData(), receivePacket.getOffset(), receivePacket.getLength());
-//					handler.post(new Runnable(){
-//			            public void run() {
-//			            	tx_RX.setText(strRX);
-//			            }});
-				}
 			} catch (NullPointerException n){
 				Log.i("GAL","NullPointerException");
 				n.printStackTrace();

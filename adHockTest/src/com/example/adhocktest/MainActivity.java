@@ -59,7 +59,6 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	private Button b_exit;
 	private Button b_start_stop;
 	private Toast toast_my_ip;
-	private Toast toast_sending;
 	
 	// video Layout items
 	static ImageView video_feed_view;
@@ -157,8 +156,10 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	// Function implementations
 	//////////////////
 	public void StartListening() {
-		ReceiverUDP receiverUDP = new ReceiverUDP(this.routing); // todo: text is no longer relevant, delete it
+		ReceiverUDP receiverUDP = new ReceiverUDP(this.routing, false);  // MNG  receiver
+		ReceiverUDP receiverUDP_MNG = new ReceiverUDP(this.routing, true); // DATA receiver 
 		receiverUDP.start();
+		receiverUDP_MNG.start();
 	}
 
 	@SuppressLint("ShowToast")
@@ -173,7 +174,6 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		/////// Init toasts
 		int duration = Toast.LENGTH_SHORT;
 		toast_my_ip = Toast.makeText(this, my_ip, duration);
-		toast_sending = Toast.makeText(this, "Sending", duration);
 		toast_my_ip.show();
 		////// Init layout pointers and spinners
 		initIpSpinner();
@@ -267,7 +267,6 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		                    	
 		                    	  Camera.Parameters parameters = camera.getParameters();
 		                          int imageFormat = parameters.getPreviewFormat();
-		                          Bitmap bitmap = null;
 		                          //Compress to jpeg	
 		                          if ( imageFormat == ImageFormat.NV21 )
 		                          {
