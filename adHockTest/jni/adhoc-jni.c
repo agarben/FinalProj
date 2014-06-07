@@ -45,10 +45,13 @@
 #define STR_NOT_EQUAL 1
 #define HEADER_LEN 200 // TODO: May need to be increased
 #define BUFLEN 64000
-#define MAX_MSGS_IN_BUF 20
+#define MAX_MSGS_IN_BUF 120
 
 #define DATA_PORT 1234
 #define MNG_PORT 8888
+
+#define DONTCARE_INT 0
+#define DONTCARE_CHAR "dontcare"
 
 /////
 //DEFINE MEMBER IN NETWORK
@@ -66,15 +69,13 @@ typedef struct SourceList{
 typedef struct Buffer{
 
 	int is_valid;
-	int msg_indx;
-	char* msg;
+	char msg[BUFLEN];
+	char target_ip[20];
 
 	int was_sent; 			// Flag - Set:This message was already sent as a broadcast clear: it was not
-	//int msg_len; // xor might cause unexpected '\0'
+	int msg_len; // xor might cause unexpected '\0'
 	int should_xor;
-
 } Buffer;
-
 
 typedef struct MemberInNetwork {
 	int cur_node_distance;
@@ -84,7 +85,6 @@ typedef struct MemberInNetwork {
 	struct NetworkMap * SubNetwork;
 	int CountdownTimer;
 	struct Buffer MemberBuffer[MAX_MSGS_IN_BUF];
-	int buf_index;
 	//need to add more parameters such as last received etc
 } MemberInNetwork;
 
@@ -118,14 +118,14 @@ int AddToNetworkMap(char* node_ip,NetworkMap * Network_Head);
 int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* member_to_remove, int network_is_members_list);
 int DoesNodeExist(char* ip_to_check, NetworkMap* Network_to_check);
 void Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env, jobject thiz, jstring ip, jstring message, jint is_broadcast);
-void SendUdpJNI(const char* ip, const char* message, int is_broadcast, int is_source, int msg_len);
+void SendUdpJNI(const char* _target_ip, const char* message, int is_broadcast, int is_source, int msg_len);
 jstring Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz, jint is_mng);
 void ProcessHelloMsg(char* buf,int buf_length,NetworkMap* network_to_add_to);
 jstring Java_com_example_adhocktest_Routing_RefreshNetworkMapJNI(JNIEnv* env1, jobject thiz);
 void RefreshNetworkMap(NetworkMap* network_to_refresh);
 MemberInNetwork* GetNextHop(NetworkMap* network_to_search ,MemberInNetwork* final_destination);
 int IsNodeForbidden(char* ip_to_check);
-void AddMsgToBuffer(MemberInNetwork* Member, const char* msg,int msg_indx,int msg_len, char* target_ip);
+void AddMsgToBuffer(MemberInNetwork* Member, const char* msg,int msg_indx,int msg_len, const char* target_ip);
 int IsHelloMsg(char* msg);
 char* ExtractNextHopFromHeader(char *msg);
 char* ExtractTargetFromHeader(char *msg);
@@ -452,9 +452,7 @@ int AddToNetworkMap(char* node_ip, NetworkMap * Network_Head){
 		///////
 		//buffers
 		///////
-		temp->buf_index = 0;
 		for (i=0; i<MAX_MSGS_IN_BUF; i++) {
-			temp->MemberBuffer[i].msg = (char*)malloc(sizeof(char)*BUFLEN);
 			temp->MemberBuffer[i].is_valid = FALSE;
 		}
 
@@ -604,19 +602,20 @@ Java_com_example_adhocktest_SenderUDP_SendUdpJNI( JNIEnv* env,
                                                   jobject thiz, jstring ip, jstring j_message, jint is_broadcast)
 {
 
-	const char *_ip = (*env)->GetStringUTFChars(env, ip, 0);
+	const char *_target_ip = (*env)->GetStringUTFChars(env, ip, 0);
 	const char *message = (*env)->GetStringUTFChars(env, j_message, 0);   // Message to be sent
 
-	SendUdpJNI(_ip, message, is_broadcast, TRUE, strlen(message));
+	SendUdpJNI(_target_ip, message, is_broadcast, TRUE, strlen(message));
 	(*env)->ReleaseStringUTFChars(env,j_message,message);
-	(*env)->ReleaseStringUTFChars(env,ip,_ip);
+	(*env)->ReleaseStringUTFChars(env,ip,_target_ip);
 }
 
-void SendUdpJNI(const char* _ip, const char* message, int is_broadcast, int is_source, int msg_len) {
+void SendUdpJNI(const char* _target_ip, const char* message, int is_broadcast, int is_source, int msg_len) {
 
 	int retval;
-	char send_buf[BUFLEN];
+	char send_buf[BUFLEN];;
 	static int msg_index = 0;
+
 	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): Message is [%s]", message);
 
 	char* next_hop_ip;
@@ -639,27 +638,24 @@ void SendUdpJNI(const char* _ip, const char* message, int is_broadcast, int is_s
 		if ( retval < 0) {
 			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto failed with %d. message was [%s]", errno,hello_message_string);
 		} else {
-			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto() Success (retval=%d messge='%s' size=%d ip=%s", retval,hello_message_string,strlen(hello_message_string),_ip);
+			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto() Success (retval=%d messge='%s' size=%d ip=%s", retval,hello_message_string,strlen(hello_message_string),_target_ip);
 		}
 	} else {
 		/////////////////
 		// Get next hop
 		/////////////////
 
-		strcpy(final_dest_ip,_ip);
+		strcpy(final_dest_ip,_target_ip);
 		MemberInNetwork* temp_member = GetNode(final_dest_ip, AllNetworkMembersList, 1);
 		if (temp_member != NULL) {
 			temp_member = GetNextHop(MyNetworkMap,temp_member);
 			if (temp_member != NULL) {
 				next_hop_ip = temp_member->node_ip;
 
-
-
 				///////////////
 				// Broadcast decision block - // TODO: Enable algorithm to broadcast only when needed
 				//////////////
 				if ((inet_aton(next_hop_ip,&servaddr_tx.sin_addr)) == 0) {		// set socket target ip to next hop, use data tx socket
-		//						free(send_buf);
 					close(sock_fd_tx);
 					__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI():Cannot decode IP address");
 					return;
@@ -678,7 +674,7 @@ void SendUdpJNI(const char* _ip, const char* message, int is_broadcast, int is_s
 
 				strcpy(send_buf,next_hop_ip);
 				strcat(send_buf,"|");
-				strcat(send_buf,_ip);
+				strcat(send_buf,_target_ip);
 				strcat(send_buf,";XOR{");
 				strcat(send_buf,MyNetworkMap->node_base_ip);
 				strcat(send_buf,"-");
@@ -693,15 +689,15 @@ void SendUdpJNI(const char* _ip, const char* message, int is_broadcast, int is_s
 			}
 		}
 
-		AddMsgToBuffer(temp_member, send_buf, msg_index%MAX_MSGS_IN_BUF, 1,"");
+		msg_index = msg_index % MAX_MSGS_IN_BUF;
+		AddMsgToBuffer(temp_member, message, msg_index, strlen(message),_target_ip);
 		retval = sendto(sock_fd_tx, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr_tx, sizeof(servaddr_tx));
 		if ( retval < 0) {
 			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto failed with %d. message was [%s]", errno,send_buf);
 		} else {
-			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto() Success (retval=%d messge='%s' size=%d ip=%s", retval,send_buf,strlen(send_buf),_ip);
+			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto() Success (retval=%d messge='%s' size=%d ip=%s", retval,send_buf,strlen(send_buf),_target_ip);
 		}
 	}
-//	close(sock_fd_tx); // no longer need to close socket since its global now
 }
 
 jstring
@@ -947,71 +943,22 @@ MemberInNetwork* GetNextHop(NetworkMap* network_to_search ,MemberInNetwork* fina
 
 }
 
-//void AddMsgToBuffer(MemberInNetwork* MemberBuffer, const char* msg,int msg_indx, int msg_len, char* target_ip){
-//
-//	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): Need to add msg : [%s] with index #%d to [%s]", msg,msg_indx,MemberBuffer->node_ip);
-//
-//	Buffer* temp;
-//	Buffer* search_end;
-//
-//	temp = (Buffer*)malloc(sizeof(Buffer));
-//	if (temp==NULL){
-//		__android_log_print(ANDROID_LOG_INFO, "Error","AddMsgToBuffer(): Failed to allocate memory for Buffer... ;");
-//		return;
-//	}
-//	temp->target_ip = (char*)malloc(sizeof(char)*20);
-//	if (temp->target_ip==NULL){
-//		__android_log_print(ANDROID_LOG_INFO, "Error","AddMsgToBuffer(): Failed to allocate memory for temp->target_ip... ;");
-//		free(temp->target_ip);
-//		return;
-//	}
-//
-//	strcpy(temp->target_ip,target_ip);
-//	temp->was_sent = FALSE;
-//	temp->msg_indx = msg_indx;
-//	temp->next_buf_msg = NULL;
-//	temp->msg=(char*)malloc(sizeof(char)*(1+msg_len));
-//	if (temp->msg==NULL){
-//		__android_log_print(ANDROID_LOG_INFO, "Error_","AddMsgToBuffer(): Failed to allocate memory for msg in buffer... ;");
-//		free(temp->target_ip);
-//		free(temp);
-//		return;
-//	}
-//	strcpy(temp->msg,msg);
-//
-//	search_end = MemberBuffer->msg_buffer;
-//	if (search_end == NULL){
-//		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): Buffer is empty");
-//		MemberBuffer->msg_buffer = temp;
-//	} else{
-//		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","AddMsgToBuffer(): Buffer is not empty - reaching end of buffer list");
-//		while (search_end->next_buf_msg != NULL){
-//			search_end=search_end->next_buf_msg;
-//		}
-//		search_end->next_buf_msg = temp;
-//	}
-//
-//	temp = MyMemberBuffer->msg_buffer;
-//	while (temp!=NULL) {
-//		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c", "AddMsgToBuffer(): [%d:%s]",temp->msg_indx,temp->msg);
-//		temp=temp->next_buf_msg;
-//	}
-//
-//
-//}
-
-
-void AddMsgToBuffer(MemberInNetwork* Member, const char* msg,int msg_indx,int msg_len, char* target_ip) {
+void AddMsgToBuffer(MemberInNetwork* Member, const char* msg,int msg_indx,int msg_len, const char* target_ip) {
 	Member->MemberBuffer[msg_indx].is_valid = TRUE;
 	Member->MemberBuffer[msg_indx].was_sent = FALSE;
+	Member->MemberBuffer[msg_indx].msg_len = msg_len;
+	Member->MemberBuffer[msg_indx].should_xor = msg_indx;
+	// TODO: Handle a missed packet scenario (received 4-6 or 4-6-5)
 
-	strcpy(Member->MemberBuffer[msg_indx].msg,msg);
+	strcpy(Member->MemberBuffer[msg_indx].msg, msg);
+	strcpy(Member->MemberBuffer[msg_indx].target_ip, target_ip);
 
 	__android_log_print(ANDROID_LOG_INFO, "Buffers","~~~~Buffer is~~~");
 	int i;
 	for (i=0; i<MAX_MSGS_IN_BUF; i++) {
-		if (Member->MemberBuffer[i].is_valid == TRUE) {
-			__android_log_print(ANDROID_LOG_INFO, "Buffers","%d. [%s]", i, Member->MemberBuffer[i].msg);
+		if (Member->MemberBuffer[i].is_valid == TRUE && Member->MemberBuffer[i].was_sent == FALSE) {
+			__android_log_print(ANDROID_LOG_INFO, "Buffers","%d. msg=[%s]", i, Member->MemberBuffer[i].msg);
+			__android_log_print(ANDROID_LOG_INFO, "Buffers","	target_ip=[%s] was_sent=[%d] msg_len=[%d] should_xor=[%d]", Member->MemberBuffer[i].target_ip, Member->MemberBuffer[i].was_sent, Member->MemberBuffer[i].msg_len, Member->MemberBuffer[i].should_xor);
 		}
 	}
 
