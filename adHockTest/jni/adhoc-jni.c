@@ -8,18 +8,6 @@
 
 // TODO: Keep trying to restart network interface if it doesnt work
 
-
-/*
- *  Network coding theory
- *
- *  Next Hop |1 Target |2 Source |3 Indx ; message
- * strstr(buf,"|1");
- *
- *  No packet drop
- *  No disconnections
- *  Static 3 nodes line network coding
- *  always between 96 and 207 , with 22 as relay
- */
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -137,7 +125,7 @@ char* ExtractTargetFromHeader(char *msg);
 int GetIntFromString(char* str_number);
 SourceList* GetSourceFromString(char* msg);
 void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1, jobject thiz);
-
+int NeedToBroadcast(char* message);
 /*
  * FUNCTION IMPLEMENTATION
  */
@@ -145,8 +133,10 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 ///////////////
 // Global SendUdp Socket
 ///////////////
-int sock_fd_tx;
-struct sockaddr_in servaddr_tx;
+int sock_uni_tx;
+struct sockaddr_in servaddr_uni_tx;
+int sock_broad_tx;
+struct sockaddr_in servaddr_broad_tx;
 int sock_fd_rx;
 struct sockaddr_in servaddr_rx;
 
@@ -161,42 +151,78 @@ void InitializeSockets() {
 	int is_broadcast = TRUE; // always broadcast
 	int retval;
 
-
-
-
-
-
 	//////////////////
-	// TX
+	// TX_UCAST
 	/////////////////
 
 	/// create socket
-	if (( sock_fd_tx = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
+	if (( sock_uni_tx = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
 		__android_log_print(ANDROID_LOG_INFO, "Error",  "InitializeSockets(): Cannot create socket, error %d", errno);
 		return;
 	}
 
 	// set socket options
-	int ret=setsockopt(sock_fd_tx, SOL_SOCKET, SO_BROADCAST, &is_broadcast, sizeof(is_broadcast));
-	if (ret) {
-		close(sock_fd_tx);
+	retval=setsockopt(sock_uni_tx, SOL_SOCKET, SO_BROADCAST, &is_broadcast, sizeof(is_broadcast));
+	if (retval) {
+		close(sock_uni_tx);
 		__android_log_print(ANDROID_LOG_INFO, "Error",  "InitializeSockets(): Failed to set setsockopt(), error: %d", errno);
 		return;
 	}
 
-	memset((char*)&servaddr_tx, 0, sizeof(servaddr_tx));
-	servaddr_tx.sin_family = AF_INET;
-	servaddr_tx.sin_port = htons(DATA_PORT);
+	memset((char*)&servaddr_uni_tx, 0, sizeof(servaddr_uni_tx));
+	servaddr_uni_tx.sin_family = AF_INET;
+	servaddr_uni_tx.sin_port = htons(DATA_PORT);
 
-	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "InitializeSockets(): sock_fd_tx values = %d", sock_fd_tx);
+	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "InitializeSockets(): sock_uni_tx values = %d", sock_uni_tx);
 
-	servaddr_tx.sin_addr.s_addr = htonl(INADDR_ANY);
-	if ((inet_aton(MyNetworkMap->node_base_ip,&servaddr_tx.sin_addr)) == 0) {
-		close(sock_fd_tx);
+	servaddr_uni_tx.sin_addr.s_addr = htonl(INADDR_ANY);
+	if ((inet_aton(MyNetworkMap->node_base_ip,&servaddr_uni_tx.sin_addr)) == 0) {
+		close(sock_uni_tx);
 		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI():Cannot decode IP address");
 		return;
 	}
 
+	is_broadcast = FALSE;
+	if ((inet_aton(MyNetworkMap->node_base_ip,&servaddr_uni_tx.sin_addr)) == 0) {		// set socket target ip to next hop, use data tx socket
+		close(sock_uni_tx);
+		__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI():Cannot decode IP address");
+		return;
+	}
+
+	setsockopt(sock_uni_tx, SOL_SOCKET, SO_BROADCAST, &is_broadcast, sizeof(is_broadcast));
+
+	//////////////////
+	// TX_BCAST
+	/////////////////
+
+	/// create socket
+	if (( sock_broad_tx = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
+		__android_log_print(ANDROID_LOG_INFO, "Error",  "InitializeSockets(): Cannot create socket, error %d", errno);
+		return;
+	}
+
+	// set socket options
+	is_broadcast = TRUE;
+	retval=setsockopt(sock_broad_tx, SOL_SOCKET, SO_BROADCAST, &is_broadcast, sizeof(is_broadcast));
+	if (retval) {
+		close(sock_broad_tx);
+		__android_log_print(ANDROID_LOG_INFO, "Error",  "InitializeSockets(): Failed to set setsockopt(), error: %d", errno);
+		return;
+	}
+
+	memset((char*)&servaddr_broad_tx, 0, sizeof(servaddr_broad_tx));
+	servaddr_broad_tx.sin_family = AF_INET;
+	servaddr_broad_tx.sin_port = htons(DATA_PORT);
+
+	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "InitializeSockets(): sock_broad_tx values = %d", sock_broad_tx);
+
+
+	if ((inet_aton(MyNetworkMap->node_base_ip,&servaddr_broad_tx.sin_addr)) == 0) {
+				close(sock_mng_tx);
+				__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI():Cannot decode IP address");
+				return;
+	}
+	servaddr_broad_tx.sin_addr.s_addr |= 0xff000000;
 	////////////////////
 	/// MNG TX
 	/////////////////////
@@ -208,8 +234,9 @@ void InitializeSockets() {
 	}
 
 	// set socket options
-	ret=setsockopt(sock_mng_tx, SOL_SOCKET, SO_BROADCAST, &is_broadcast, sizeof(is_broadcast));
-	if (ret) {
+	is_broadcast = TRUE;
+	retval=setsockopt(sock_mng_tx, SOL_SOCKET, SO_BROADCAST, &is_broadcast, sizeof(is_broadcast));
+	if (retval) {
 		close(sock_mng_tx);
 		__android_log_print(ANDROID_LOG_INFO, "Error",  "InitializeSockets(): Failed to set management_tx setsockopt(), error: %d", errno);
 		return;
@@ -494,7 +521,7 @@ int AddToNetworkMap(char* node_ip, NetworkMap * Network_Head){
 	} else {
 		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","AddToNetworkMap(): Node with ip :[%s] already exists in this level.", node_ip);
 	}
-	UpdateNodeTimer(temp,12);
+	UpdateNodeTimer(temp,4);
 	return 0;
 }
 
@@ -1082,37 +1109,6 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 				if (target_member_ptr != NULL) { 				// TODO: What to do if its null?
 					next_hop_ptr = GetNextHop(MyNetworkMap, target_member_ptr);
 					if (next_hop_ptr != NULL) { 				// TODO: What to do if its null?
-
-
-
-
-						///////////////// TODO: Seperate Bcast and Unicast sockets, and only set them in InitializeSocket ---- this is currently a mess! //////////////
-
-									if ((inet_aton(next_hop_ptr->node_ip,&servaddr_tx.sin_addr)) == 0) {		// set socket target ip to next hop, use data tx socket
-										close(sock_fd_tx);
-										__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI():Cannot decode IP address");
-										return;
-									}
-									_is_broadcast = FALSE;
-					//				if (is_source) {											// set data_tx socket to unicast
-					//					_is_broadcast = FALSE;
-					//				} else {													// set data_tx socket to broadcast
-					//					_is_broadcast = TRUE;
-					//					servaddr_tx.sin_addr.s_addr |= 0xff000000; // always broadcast! // mask ip to end with .255 (for broadcast)
-					//				}
-									setsockopt(sock_fd_tx, SOL_SOCKET, SO_BROADCAST, &_is_broadcast, sizeof(_is_broadcast));
-						////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-
-
-
-
-
-
-
-
 						strcpy(send_buf,next_hop_ptr->node_ip);
 						strcat(send_buf,"|");
 						strcat(send_buf,target_member_ptr->node_ip);
@@ -1128,8 +1124,19 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 								strcat(send_buf,"~");
 						}
 						strcat(send_buf,Member->MemberBuffer[current_index_to_send].msg);
+//						if (1==1) {
+						if (Member->MemberBuffer[current_index_to_send].is_source == TRUE) {								// TODO: Change this condition to if (only one target) {unicast } else {broadcast}
+//						if (NeedToBroadcast(send_buf)) {
+							if ((inet_aton(next_hop_ptr->node_ip,&servaddr_uni_tx.sin_addr)) == 0) {
+									close(sock_uni_tx);
+									__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI():Cannot decode IP address");
+									return;
+							}
+							retval = sendto(sock_uni_tx, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr_uni_tx, sizeof(servaddr_uni_tx));
+						} else {
+							retval = sendto(sock_broad_tx, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr_broad_tx, sizeof(servaddr_broad_tx));
+						}
 
-						retval = sendto(sock_fd_tx, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr_tx, sizeof(servaddr_tx));
 						if ( retval < 0) {
 							__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): sendto failed with %d. message was [%20s]", errno,send_buf);
 						} else {
@@ -1200,3 +1207,22 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 //	return xor;
 //}
 
+int NeedToBroadcast(char* message) {
+
+	char* strstrptr;
+
+	strstrptr = strstr(message,"|");
+	if (strstrptr == NULL) {
+		__android_log_print(ANDROID_LOG_INFO, "ERROR",  "NeedToBroadcast(): Did not find '|' in [%s]",message);
+	}
+
+	strstrptr++;
+	while (strstrptr[0] != '|') {
+		if (strstrptr[0] == ',') {
+			return TRUE;
+		}
+		strstrptr++;
+	}
+
+	return FALSE;
+}

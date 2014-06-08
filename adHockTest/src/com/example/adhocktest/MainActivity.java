@@ -381,29 +381,6 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	    return(result);  
 	}
 	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
 	public void initIpSpinner() {
 		ip_array = new ArrayList<String>();
 		adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, ip_array);
