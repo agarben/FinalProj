@@ -39,7 +39,6 @@ public class ReceiverUDP extends Thread{
 	public void run(){
 		while (1<2)
 		{	
-			
 			try {	
 					Log.i("ReceiverUDP.java","NDK:Opening socket and listening");
 					

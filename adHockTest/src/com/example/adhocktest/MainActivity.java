@@ -150,11 +150,17 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		routing = new Routing(my_ip, this);
 		routing.broadcastIP(true);
 		StartListening();
+		StartBufferHandler();
 	}
 
 	///////////////////
 	// Function implementations
 	//////////////////
+	public void StartBufferHandler() {
+		BufferHandler buffer_handler = new BufferHandler();
+		buffer_handler.start();
+	}
+	
 	public void StartListening() {
 		ReceiverUDP receiverUDP = new ReceiverUDP(this.routing, false);  // MNG  receiver
 		ReceiverUDP receiverUDP_MNG = new ReceiverUDP(this.routing, true); // DATA receiver 
