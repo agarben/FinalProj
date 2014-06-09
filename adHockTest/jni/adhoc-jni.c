@@ -334,7 +334,6 @@ void GenerateHelloMsg(char* base_string, NetworkMap* network_head) {
 //return 1 if node is forbidden
 int IsNodeForbidden(char* ip_to_check){
 
-//	return FALSE;// TODO: Temporary debug , delete this line
 
 	MemberInNetwork* temp;
 	temp = ForbiddenNodesToAdd->FirstMember;
@@ -732,17 +731,14 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz, j
 	socklen_t slen=sizeof(cli_addr);
 
 	if (is_mng == FALSE) {
-		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Data RX waiting");
 		retVal = recvfrom(sock_fd_rx, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen);
 		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): (DATA) Raw string received: <%s>",buf);
 	} else {
-		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Mng RX waiting");
 		retVal = recvfrom(sock_mng_rx, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen);
 		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): (MNG)  Raw string received: <%s>",buf);
 	}
 	if (retVal==-1) {
 		__android_log_print(ANDROID_LOG_INFO, "Error",  "RecvUdpJNI() Failed to recvfrom() retVal=%d",retVal);
-		exit(0); // TODO : Delete
 		return (*env1)->NewStringUTF(env1, "ignore");
 	} else {
 		buf[retVal] = '\0';
@@ -789,11 +785,20 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz, j
 				}
 
 				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): target_ip extracted before calling SendUdpJNI: <%s>",target_from_header);
-				SendUdpJNI(target_from_header,strstrptr+1,1,FALSE,strlen(strstrptr+1), GetSourceFromString(buf)->ip, GetSourceFromString(buf)->index); // TODO: Make more efficient, TODO: When we add XOR we have to use the message length integer instead of strlen() , TODO: When network coding this will have to happen after decode
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Back from forwarding1");
-				sprintf(return_str, "forwarding message [%s]",buf); // TODO : Check if we can bring it back
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Back from forwarding2");
 
+//				if (network_coding_on) {								// TODO: Should happen if im the target/relay
+//					source_list = GetSourceFromString(buf);
+//					if (CountSources(source_list) > 1) {                 a1+a2
+//						Decode(buf,source_list.....);                   1)     a1V
+//						                                     			2)     a2X
+//						Send();
+//					} else {
+//						Send();
+//					}
+//				}
+
+
+				SendUdpJNI(target_from_header,strstrptr+1,1,FALSE,strlen(strstrptr+1), GetSourceFromString(buf)->ip, GetSourceFromString(buf)->index); // TODO: Make more efficient, TODO: When we add XOR we have to use the message length integer instead of strlen() , TODO: When network coding this will have to happen after decode
 			} else { 	 						// I am neither the next hop or target
 				is_ignore_msg = TRUE;
 			}
@@ -1066,18 +1071,30 @@ IpList* GetSourceFromString(char* msg){
 		temp_source_index_as_string[i] = '\0';
 		source_to_return->index = GetIntFromString(temp_source_index_as_string);
 
+		//
+		// TODO: get length section
+		//
 		source_to_return->msg_len = -1; 		// TODO: Add the length of the source's msg to the struct
-
-		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c", "GetSourceFromString(): Source found [%s]-[%d]",source_to_return->ip,source_to_return->index);
-		if (strstrptr[i] != '}'){
+		//
+		//
+		//
+//		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c", "GetSourceFromString(): Source found [%s]-[%d]",source_to_return->ip,source_to_return->index);
+		if (strstrptr[i] == ','){		// if there's a ','
 			source_to_return->next_source = (IpList*)malloc(sizeof(IpList));
 			source_to_return = source_to_return->next_source;
 			i++;
 			strstrptr = strstrptr + i;
-		}
-		else{
+		} else {
 			source_to_return->next_source = NULL;
 		}
+
+
+//		XOR{IP-indx.size,IP-indx.size}
+//
+//
+//
+//
+//
 	}
 	free(temp_source_index_as_string);
 	return head_of_source_list;
@@ -1128,8 +1145,14 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 						if (strcmp(Member->node_ip,ReadyMember1->node_ip)!=0) { // Only if we found another member with a message to send who is not identical to the previous one
 							ReadyMember2 = Member;
 
-							__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Going to send [%s-%d] XOR [%s-%d]", ReadyMember1->node_ip,ReadyMember1->current_index_to_send, ReadyMember2->node_ip,ReadyMember2->current_index_to_send);
-							BuildHeader(send_buf, ReadyMember1, ReadyMember1);
+							__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Going to send [%s-%d] source?[%d] XOR [%s-%d] source?[%d]",
+									ReadyMember1->node_ip,
+									ReadyMember1->current_index_to_send,
+									ReadyMember1->MemberBuffer[ReadyMember1->current_index_to_send].is_source,
+									ReadyMember2->node_ip,
+									ReadyMember2->current_index_to_send,
+									ReadyMember2->MemberBuffer[ReadyMember2->current_index_to_send].is_source);
+							BuildHeader(send_buf, ReadyMember1, ReadyMember2);
 							ready_to_send_prev_state = ready_to_send;
 							ready_to_send = TRUE;
 
@@ -1162,7 +1185,7 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 
 					///// prepare for next iteration
 					//////////////////////////////////
-					if (network_coding_on) { // TODO: Temporary workaround
+					if (network_coding_on && Member->MemberBuffer[Member->current_index_to_send].is_source == FALSE) { // TODO: Temporary workaround
 						if (ReadyMember1 != NULL) {
 							ReadyMember1->MemberBuffer[ReadyMember1->current_index_to_send].was_sent = TRUE;
 							ReadyMember1->current_index_to_send = (ReadyMember1->current_index_to_send+1) % MAX_MSGS_IN_BUF;
@@ -1172,8 +1195,8 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 							ReadyMember2->current_index_to_send = (ReadyMember2->current_index_to_send+1) % MAX_MSGS_IN_BUF;
 						}
 					} else {
-						Member->current_index_to_send = (Member->current_index_to_send+1) % MAX_MSGS_IN_BUF;
 						Member->MemberBuffer[Member->current_index_to_send].was_sent = TRUE;
+						Member->current_index_to_send = (Member->current_index_to_send+1) % MAX_MSGS_IN_BUF;
 					}
 
 					ReadyMember1 = NULL;
@@ -1182,18 +1205,18 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 					ready_to_send = FALSE;
 					///// INFO
 					////////////////////////////////////////
-					if (Member->current_index_to_send == 0) {
-						__android_log_print(ANDROID_LOG_INFO, "Buffers","RunSendingDaemonJNI(): Member=[%s] buffer wrap-around", Member->node_ip);
+					if (Member->current_index_to_send == MAX_MSGS_IN_BUF) {
+						__android_log_print(ANDROID_LOG_INFO, "Buffers","RunSendingDaemonJNI(): Member=[%s] buffer going to wrap-around", Member->node_ip);
 					}
 				}
 			}
 
 //			if (ReadyMember1 != NULL && ReadyMember2 != NULL) {
-//				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Pre ready_to_send. entered_nwc:[%d] entered_sect1:[%d] ready_to_send:[%d], ReadyMember1 [%s] ReadyMember2[%s]", entered_nw_coding, entered_sect_1, ready_to_send,ReadyMember1->node_ip,ReadyMember2->node_ip);
+//				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Pre ready_to_send. entered_nwc:[%d] entered_sect1:[%d] ready_to_send:[%d], ReadyMember1 [%s] ReadyMember2[%s]", entered_nw_coding, entered_sect_1, ready_to_send_prev_state,ReadyMember1->node_ip,ReadyMember2->node_ip);
 //			} else if (ReadyMember1 != NULL) {
-//				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Pre ready_to_send. entered_nw_coding:[%d] entered_sect1:[%d] ready_to_send:[%d], ReadyMember1 [%s] ReadyMember2[NULL] Member [%s] Member Cur Indx [%d] Member valid [%d] Member Sent [%d]", entered_nw_coding, entered_sect_1, ready_to_send,ReadyMember1->node_ip, Member->node_ip,Member->current_index_to_send,Member->MemberBuffer[Member->current_index_to_send].is_valid,Member->MemberBuffer[Member->current_index_to_send].was_sent);
+//				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Pre ready_to_send. entered_nw_coding:[%d] entered_sect1:[%d] ready_to_send:[%d], ReadyMember1 [%s] ReadyMember2[NULL] Member [%s] Member Cur Indx [%d] Member valid [%d] Member Sent [%d]", entered_nw_coding, entered_sect_1, ready_to_send_prev_state,ReadyMember1->node_ip, Member->node_ip,Member->current_index_to_send,Member->MemberBuffer[Member->current_index_to_send].is_valid,Member->MemberBuffer[Member->current_index_to_send].was_sent);
 //			} else {
-//				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Pre ready_to_send. entered_nw_coding:[%d] entered_sect1:[%d] ready_to_send:[%d], Member [%s]", entered_nw_coding, entered_sect_1, ready_to_send,Member->node_ip);
+//				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Pre ready_to_send. entered_nw_coding:[%d] entered_sect1:[%d] ready_to_send:[%d], Member [%s]", entered_nw_coding, entered_sect_1, ready_to_send_prev_state,Member->node_ip);
 //			}
 
 
@@ -1236,7 +1259,7 @@ int NeedToBroadcast(char* message) {
 	return FALSE;
 }
 
-void BuildHeader(char* send_buf, MemberInNetwork* BufferOwnerMember1, MemberInNetwork* BufferOwner2) {
+void BuildHeader(char* send_buf, MemberInNetwork* BufferOwnerMember1, MemberInNetwork* BufferOwnerMember2) {
 
 	MemberInNetwork* next_hop_ptr;
 	MemberInNetwork* target_member_ptr;
@@ -1250,18 +1273,43 @@ void BuildHeader(char* send_buf, MemberInNetwork* BufferOwnerMember1, MemberInNe
 	}
 	next_hop_ptr = GetNextHop(MyNetworkMap, target_member_ptr);
 
+
+ 	// XOR{} ~
+	char * strstrptr;
+	char * only_data_part_of_msg = strstr(BufferOwnerMember1->MemberBuffer[BufferOwnerMember1->current_index_to_send].msg,"~"); // TODO: When network coding, the msg should be the encoded one and not just of Member1
+	if (only_data_part_of_msg != NULL) {
+		only_data_part_of_msg++;
+	} else {
+		only_data_part_of_msg = BufferOwnerMember1->MemberBuffer[BufferOwnerMember1->current_index_to_send].msg;
+	}
+
 	// copied to BuildHeader
 	strcpy(send_buf,next_hop_ptr->node_ip);
 	strcat(send_buf,"|");
 	strcat(send_buf,target_member_ptr->node_ip);
 	strcat(send_buf,";");
-	if (BufferOwnerMember1->MemberBuffer[BufferOwnerMember1->current_index_to_send].is_source == TRUE) {
-		strcat(send_buf,"XOR{");
-	strcat(send_buf,MyNetworkMap->node_base_ip);
-	strcat(send_buf,"-");
-	sprintf(strstr(send_buf,"-"),"-%d",BufferOwnerMember1->current_index_to_send);
-	strcat(send_buf,"}");
+	strcat(send_buf,"XOR{");
+
+
+	int entered_1=FALSE,entered_2=FALSE;
+
+	if (BufferOwnerMember1 != NULL) {
+		entered_1 = TRUE;
+		strcat(send_buf,BufferOwnerMember1->node_ip);
+		strcat(send_buf,"-");
+		sprintf(strstr(send_buf,"-"),"-%d",BufferOwnerMember1->current_index_to_send);						// WARNING - No verification that strstrptr!=NULL
 	}
+	if ((BufferOwnerMember2 != NULL) && (strcmp(BufferOwnerMember1->node_ip,BufferOwnerMember2->node_ip) != 0)) {  // only if there's a second node and its not the same as the first
+		entered_2 = TRUE;
+		strcat(send_buf,",");
+		strcat(send_buf,BufferOwnerMember2->node_ip);
+		strcat(send_buf,"-");
+		strstrptr = strstr(send_buf,"-"); // find the '-' of the first source
+		strstrptr = strstr(++strstrptr,"-"); // find the '-' of the second source (the one we're currently adding     	// WARNING - No verification that strstrptr!=NULL
+		sprintf(strstrptr,"-%d",BufferOwnerMember2->current_index_to_send);
+	}
+
+	strcat(send_buf,"}");
 	// /copied to buildHeader
 
 	if (!NeedToBroadcast(send_buf)) {
@@ -1272,13 +1320,13 @@ void BuildHeader(char* send_buf, MemberInNetwork* BufferOwnerMember1, MemberInNe
 		}
 	}
 
-	if (BufferOwnerMember1->MemberBuffer[BufferOwnerMember1->current_index_to_send].is_source == TRUE) {
-			strcat(send_buf,"~");
-	}
-	strcat(send_buf,BufferOwnerMember1->MemberBuffer[BufferOwnerMember1->current_index_to_send].msg);
+	__android_log_print(ANDROID_LOG_INFO, "DEBUG_1",  "BuildHeader(): Final Header is [%s]", BufferOwnerMember1->node_ip, BufferOwnerMember2->node_ip, send_buf);
+	strcat(send_buf,"~");
+	strcat(send_buf,only_data_part_of_msg);
+
 }
 
-
+//                                                         XOR{}~DATA
 /////////////////////////////////////////
 //// Network coding utility
 /////////////////////////////////////////
