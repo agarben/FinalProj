@@ -99,7 +99,7 @@ NetworkMap* ForbiddenNodesToAdd;
 
 MemberInNetwork* MyMemberInstance;
 
-int network_coding_on = FALSE;
+int network_coding_on = TRUE;
 
 
 /********************************************************
@@ -1085,19 +1085,25 @@ IpList* GetSourceFromString(char* msg){
 
 
 void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1, jobject thiz) {
+
+	/// TODO: We do not support relays that are also sources, and vice-versa in network coding yet
+
 	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c", "RunSendingDaemonJNI(): Started.");
 	MemberInNetwork* Member;
-	MemberInNetwork* target_member_ptr;
-	MemberInNetwork* next_hop_ptr;
+	MemberInNetwork* ReadyMember1 = NULL;
+	MemberInNetwork* ReadyMember2 = NULL;
 
+	int ready_to_send = FALSE;
+	int ready_to_send_prev_state = FALSE;
 	char encoded_msg[BUFLEN];
 
 	//// debug and such, delete variables and all logic related
 	int _is_broadcast = FALSE;								//
+	int entered_nw_coding = FALSE;							//
+	int entered_sect_1 = FALSE;								//
 	//////////////////////////////////////////////////////////
 
 	int my_turn = FALSE;
-
 	int retval;
 
 	char send_buf[BUFLEN]; // TODO: Consider changing to BUFLEN+HEADER_LEN
@@ -1107,37 +1113,92 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 
 		while (Member != NULL) {
 
-			if (Member->MemberBuffer[Member->current_index_to_send].is_valid == TRUE && Member->MemberBuffer[Member->current_index_to_send].was_sent == FALSE) 	{
+			entered_sect_1 = FALSE; // todo: delete
+			if (Member->MemberBuffer[Member->current_index_to_send].is_valid == TRUE && Member->MemberBuffer[Member->current_index_to_send].was_sent == FALSE) 	{ // TODO: This is a temporary condition for NW_coding, change it
 
-				BuildHeader(send_buf, Member, Member); // TODO: Second member will not be used, in the future it will be for network coding second msg
+				// sect1
+				entered_sect_1 = TRUE; // todo:delete
+				entered_nw_coding = FALSE; // TODO: Delete
+				if (network_coding_on && Member->MemberBuffer[Member->current_index_to_send].is_source == FALSE) {
+					entered_nw_coding = TRUE;
+
+					if (ReadyMember1 == NULL) {
+						ReadyMember1 = Member;
+					} else if (ReadyMember2 == NULL ) {
+						if (strcmp(Member->node_ip,ReadyMember1->node_ip)!=0) { // Only if we found another member with a message to send who is not identical to the previous one
+							ReadyMember2 = Member;
+
+							__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Going to send [%s-%d] XOR [%s-%d]", ReadyMember1->node_ip,ReadyMember1->current_index_to_send, ReadyMember2->node_ip,ReadyMember2->current_index_to_send);
+							BuildHeader(send_buf, ReadyMember1, ReadyMember1);
+							ready_to_send_prev_state = ready_to_send;
+							ready_to_send = TRUE;
 
 
-				//// sending block
-				/////////////////////////////////////
-				if (!NeedToBroadcast(send_buf)) {
-					retval = sendto(sock_uni_tx, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr_uni_tx, sizeof(servaddr_uni_tx));
+						}
+					}
 				} else {
-					retval = sendto(sock_broad_tx, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr_broad_tx, sizeof(servaddr_broad_tx));
-				}
-				if ( retval < 0) {
-					__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): sendto failed with %d. message was [%20s]", errno,send_buf);
-				} else {
-					__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): sendto() Success (retval=%d member=[%s] messge=[%20s] size=%d ", retval, Member->node_ip, send_buf,strlen(send_buf));
-				}
+					BuildHeader(send_buf, Member, Member); // TODO: Second member will not be used, in the future it will be for network coding second msg
+					ready_to_send_prev_state = ready_to_send;
+					ready_to_send = TRUE;
 
-				///// prepare for next iteration
-				//////////////////////////////////
-				Member->current_index_to_send = (Member->current_index_to_send+1) % MAX_MSGS_IN_BUF;
-				Member->MemberBuffer[Member->current_index_to_send].was_sent = TRUE;
-
-				///// INFO
-				////////////////////////////////////////
-				if (Member->current_index_to_send == 0) {
-					__android_log_print(ANDROID_LOG_INFO, "Buffers","RunSendingDaemonJNI(): Member=[%s] buffer wrap-around", Member->node_ip);
+					entered_nw_coding = FALSE;
 				}
 
+
+
+				if (ready_to_send) {
+					//// sending block
+					/////////////////////////////////////
+					if (!NeedToBroadcast(send_buf)) {
+						retval = sendto(sock_uni_tx, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr_uni_tx, sizeof(servaddr_uni_tx));
+					} else {
+						retval = sendto(sock_broad_tx, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr_broad_tx, sizeof(servaddr_broad_tx));
+					}
+					if ( retval < 0) {
+						__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): sendto failed with %d. message was [%20s]", errno,send_buf);
+					} else {
+						__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): sendto() Success (retval=%d member=[%s] messge=[%20s] size=%d ", retval, Member->node_ip, send_buf,strlen(send_buf));
+					}
+
+					///// prepare for next iteration
+					//////////////////////////////////
+					if (network_coding_on) { // TODO: Temporary workaround
+						if (ReadyMember1 != NULL) {
+							ReadyMember1->MemberBuffer[ReadyMember1->current_index_to_send].was_sent = TRUE;
+							ReadyMember1->current_index_to_send = (ReadyMember1->current_index_to_send+1) % MAX_MSGS_IN_BUF;
+						}
+						if (ReadyMember2 != NULL) {
+							ReadyMember2->MemberBuffer[ReadyMember2->current_index_to_send].was_sent = TRUE;
+							ReadyMember2->current_index_to_send = (ReadyMember2->current_index_to_send+1) % MAX_MSGS_IN_BUF;
+						}
+					} else {
+						Member->current_index_to_send = (Member->current_index_to_send+1) % MAX_MSGS_IN_BUF;
+						Member->MemberBuffer[Member->current_index_to_send].was_sent = TRUE;
+					}
+
+					ReadyMember1 = NULL;
+					ReadyMember2 = NULL;
+					ready_to_send_prev_state = ready_to_send;
+					ready_to_send = FALSE;
+					///// INFO
+					////////////////////////////////////////
+					if (Member->current_index_to_send == 0) {
+						__android_log_print(ANDROID_LOG_INFO, "Buffers","RunSendingDaemonJNI(): Member=[%s] buffer wrap-around", Member->node_ip);
+					}
+				}
 			}
 
+//			if (ReadyMember1 != NULL && ReadyMember2 != NULL) {
+//				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Pre ready_to_send. entered_nwc:[%d] entered_sect1:[%d] ready_to_send:[%d], ReadyMember1 [%s] ReadyMember2[%s]", entered_nw_coding, entered_sect_1, ready_to_send,ReadyMember1->node_ip,ReadyMember2->node_ip);
+//			} else if (ReadyMember1 != NULL) {
+//				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Pre ready_to_send. entered_nw_coding:[%d] entered_sect1:[%d] ready_to_send:[%d], ReadyMember1 [%s] ReadyMember2[NULL] Member [%s] Member Cur Indx [%d] Member valid [%d] Member Sent [%d]", entered_nw_coding, entered_sect_1, ready_to_send,ReadyMember1->node_ip, Member->node_ip,Member->current_index_to_send,Member->MemberBuffer[Member->current_index_to_send].is_valid,Member->MemberBuffer[Member->current_index_to_send].was_sent);
+//			} else {
+//				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Pre ready_to_send. entered_nw_coding:[%d] entered_sect1:[%d] ready_to_send:[%d], Member [%s]", entered_nw_coding, entered_sect_1, ready_to_send,Member->node_ip);
+//			}
+
+
+
+			usleep(5000);
 			///////  Mary go round?
 			////////////////////////////////////
 			if (my_turn == TRUE) { 												// if i had my turn and now its over, go over network member buffers
