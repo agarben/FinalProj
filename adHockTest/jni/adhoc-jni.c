@@ -996,7 +996,7 @@ char* ExtractNextHopFromHeader(char *msg) {
 	char* temp = (char*)malloc(sizeof(char)*20);
 	int i;
 
-	for (i=0; msg[i] != '|'; i++) {
+	for (i=0; (msg[i] != '|' && msg[i] != ','); i++) {
 		temp[i] = msg[i];
 		if (i>20) {
 			free(temp);
@@ -1017,7 +1017,7 @@ char* ExtractTargetFromHeader(char *msg) {
 		return NULL;
 	}
 	strstrptr++;
-	for (i=0; strstrptr[i] != ';'; i++) {
+	for (i=0; (strstrptr[i] != ';' && strstrptr[i] != ','); i++) {
 		temp[i] = strstrptr[i];
 	}
 	temp[i] = '\0';
@@ -1261,20 +1261,45 @@ int NeedToBroadcast(char* message) {
 
 void BuildHeader(char* send_buf, MemberInNetwork* BufferOwnerMember1, MemberInNetwork* BufferOwnerMember2) {
 
-	MemberInNetwork* next_hop_ptr;
-	MemberInNetwork* target_member_ptr;
-	target_member_ptr = GetNode(BufferOwnerMember1->MemberBuffer[BufferOwnerMember1->current_index_to_send].target_ip, AllNetworkMembersList, 1);
-	if (target_member_ptr == NULL) {
+	MemberInNetwork* next_hop_ptr_1;
+	MemberInNetwork* next_hop_ptr_2;
+	MemberInNetwork* target_member_ptr_1;
+	MemberInNetwork* target_member_ptr_2;
+	int two_different_packets = FALSE;
+
+	if (strcmp(BufferOwnerMember1->node_ip,BufferOwnerMember2->node_ip) != 0) {    // check if there's only 1 packet or 2 to be sent
+		two_different_packets = TRUE;
+	}
+
+	/////////////////////////////////
+	// Get both targets and next hops
+	/////////////////////////////////
+	target_member_ptr_1 = GetNode(BufferOwnerMember1->MemberBuffer[BufferOwnerMember1->current_index_to_send].target_ip, AllNetworkMembersList, 1);
+	if (target_member_ptr_1 == NULL) {
 		__android_log_print(ANDROID_LOG_INFO, "ERROR",  "RunSendingDaemonJNI(): Could not find target_member_ptr in MyNetworkMap");
 	}
-	next_hop_ptr = GetNextHop(MyNetworkMap, target_member_ptr);
-	if (next_hop_ptr == NULL) {
+	next_hop_ptr_1 = GetNextHop(MyNetworkMap, target_member_ptr_1);
+	if (next_hop_ptr_1 == NULL) {
 		__android_log_print(ANDROID_LOG_INFO, "ERROR",  "RunSendingDaemonJNI(): Could not find next_hop_ptr in MyNetworkMap");
 	}
-	next_hop_ptr = GetNextHop(MyNetworkMap, target_member_ptr);
+	next_hop_ptr_1 = GetNextHop(MyNetworkMap, target_member_ptr_1);
+
+	if (two_different_packets) {												// if there's another destination
+		target_member_ptr_2 = GetNode(BufferOwnerMember2->MemberBuffer[BufferOwnerMember2->current_index_to_send].target_ip, AllNetworkMembersList, 1);
+		if (target_member_ptr_2 == NULL) {
+			__android_log_print(ANDROID_LOG_INFO, "ERROR",  "RunSendingDaemonJNI(): Could not find target_member_ptr in MyNetworkMap");
+		}
+		next_hop_ptr_2 = GetNextHop(MyNetworkMap, target_member_ptr_2);
+		if (next_hop_ptr_2 == NULL) {
+			__android_log_print(ANDROID_LOG_INFO, "ERROR",  "RunSendingDaemonJNI(): Could not find next_hop_ptr in MyNetworkMap");
+		}
+		next_hop_ptr_2 = GetNextHop(MyNetworkMap, target_member_ptr_2);
+	}
 
 
- 	// XOR{} ~
+	////////////////////////////////
+	// Build header string
+	////////////////////////////////
 	char * strstrptr;
 	char * only_data_part_of_msg = strstr(BufferOwnerMember1->MemberBuffer[BufferOwnerMember1->current_index_to_send].msg,"~"); // TODO: When network coding, the msg should be the encoded one and not just of Member1
 	if (only_data_part_of_msg != NULL) {
@@ -1284,23 +1309,33 @@ void BuildHeader(char* send_buf, MemberInNetwork* BufferOwnerMember1, MemberInNe
 	}
 
 	// copied to BuildHeader
-	strcpy(send_buf,next_hop_ptr->node_ip);
-	strcat(send_buf,"|");
-	strcat(send_buf,target_member_ptr->node_ip);
-	strcat(send_buf,";");
-	strcat(send_buf,"XOR{");
 
-
-	int entered_1=FALSE,entered_2=FALSE;
-
-	if (BufferOwnerMember1 != NULL) {
-		entered_1 = TRUE;
-		strcat(send_buf,BufferOwnerMember1->node_ip);
-		strcat(send_buf,"-");
-		sprintf(strstr(send_buf,"-"),"-%d",BufferOwnerMember1->current_index_to_send);						// WARNING - No verification that strstrptr!=NULL
+	/////////////////////////////////////////////////////////// NXT_HOP ////////////////////////////////////////////////////////////////////////
+			////////////// NextHop towards target1 //////////
+	strcpy(send_buf,next_hop_ptr_1->node_ip);
+			////////////// NextHop towards target2 //////////
+	if (two_different_packets == TRUE) {
+		strcat(send_buf,",");
+		strcat(send_buf,next_hop_ptr_2->node_ip);
 	}
-	if ((BufferOwnerMember2 != NULL) && (strcmp(BufferOwnerMember1->node_ip,BufferOwnerMember2->node_ip) != 0)) {  // only if there's a second node and its not the same as the first
-		entered_2 = TRUE;
+	strcat(send_buf,"|");
+	/////////////////////////////////////////////////////////// TARGETS /////////////////////////////////////////////////////////////////////////
+			////////////// First target ///////////////////
+	strcat(send_buf,target_member_ptr_1->node_ip);
+			////////////// Second Target ///////////////////
+	if (two_different_packets == TRUE) {
+		strcat(send_buf,",");
+		strcat(send_buf,target_member_ptr_2->node_ip);
+	}
+	strcat(send_buf,";");
+	/////////////////////////////////////////////////////////// SOURCES ////////////////////////////////////////////////////////////////////////
+	strcat(send_buf,"XOR{");
+			///////////// First source ///////////////
+	strcat(send_buf,BufferOwnerMember1->node_ip);
+	strcat(send_buf,"-");
+	sprintf(strstr(send_buf,"-"),"-%d",BufferOwnerMember1->current_index_to_send);						// WARNING - No verification that strstrptr!=NULL
+			///////////// Second source ///////////////
+	if (two_different_packets == TRUE) {
 		strcat(send_buf,",");
 		strcat(send_buf,BufferOwnerMember2->node_ip);
 		strcat(send_buf,"-");
@@ -1312,15 +1347,16 @@ void BuildHeader(char* send_buf, MemberInNetwork* BufferOwnerMember1, MemberInNe
 	strcat(send_buf,"}");
 	// /copied to buildHeader
 
-	if (!NeedToBroadcast(send_buf)) {
-		if ((inet_aton(next_hop_ptr->node_ip,&servaddr_uni_tx.sin_addr)) == 0) {
+	if (!two_different_packets) {
+//	if (!NeedToBroadcast(send_buf)) {
+		if ((inet_aton(next_hop_ptr_1->node_ip,&servaddr_uni_tx.sin_addr)) == 0) {
 				close(sock_uni_tx);
 				__android_log_print(ANDROID_LOG_INFO, "Error",  "SendUdpJNI():Cannot decode IP address");
 				return;
 		}
 	}
 
-	__android_log_print(ANDROID_LOG_INFO, "DEBUG_1",  "BuildHeader(): Final Header is [%s]", BufferOwnerMember1->node_ip, BufferOwnerMember2->node_ip, send_buf);
+	__android_log_print(ANDROID_LOG_INFO, "DEBUG_1",  "BuildHeader(): Final Header is [%s]", send_buf);
 	strcat(send_buf,"~");
 	strcat(send_buf,only_data_part_of_msg);
 
