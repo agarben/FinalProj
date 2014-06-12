@@ -42,11 +42,7 @@ public class ReceiverUDP extends Thread{
 			try {	
 					Log.i("ReceiverUDP.java","NDK:Opening socket and listening");
 					
-    		  		Date_start = new Date();
 					final String rx_str = new String(RecvUdpJNI((_is_mng) ? 1:0));
-    				Date_end = new Date();
-    				time_diff_ms = (Date_end.getTime() - Date_start.getTime());
-    				Log.i("Timers", "Receiving (and forwarding?) took "+(Date_end.getTime() - Date_start.getTime())+"ms");
     				
 					Log.i("ReceiverUDP.java","String_rx returned from JNI is: "+rx_str);
 					handler.post(new Runnable(){
@@ -56,11 +52,8 @@ public class ReceiverUDP extends Thread{
 			            	} else if (rx_str.startsWith("ignore")) {
 			            	} else if (rx_str.startsWith("~")) {
 			            		MainActivity.fps_counter++;
-			    		  		Date_start = new Date();
+								Log.i("ReceiverUDP.java","Setting image: "+rx_str.substring(1));
 			            		MainActivity.DataIn = MainActivity.stringToBytesUTFCustom(rx_str.substring(1));
-			    				Date_end = new Date();
-			    				time_diff_ms = (Date_end.getTime() - Date_start.getTime());
-			    				Log.i("Timers", "Converting back to img took "+time_diff_ms+"ms");
 			            	} else { 
 			    				Log.i("Warning","Received a string that is not Hello message, ignore, or video data.");
 			            	}

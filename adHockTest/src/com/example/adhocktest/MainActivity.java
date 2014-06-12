@@ -283,19 +283,11 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		                          if ( jdata != null )
 		                          {
 		                        	  if (start){
-		                        		  		Date_start = new Date();
 		                        				String jdata_str = bytesToStringUTFCustom(jdata);
-		                        				Date_end = new Date();
-		                        				time_diff_ms = (Date_end.getTime() - Date_start.getTime());
-		                        				Log.i("Timers", "Converting bytesToString took "+time_diff_ms+"ms");
 		                        				if (target_ip != "192.168.2.255") {
 			                        				 SenderUDP senderUDP = new SenderUDP(target_ip, jdata_str);   
 						                				try {
-						                					Date_start = new Date();
 						                					senderUDP.sendMsg();
-					                        				Date_end = new Date();
-					                        				time_diff_ms = (Date_end.getTime() - Date_start.getTime());
-					                        				Log.i("Timers", "Sending time was "+time_diff_ms+"ms");
 						                					Thread.sleep(2); // TODO: Check the sleep value value
 						                				} catch (IOException e) {
 						                					e.printStackTrace();
@@ -471,8 +463,8 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		Log.i("MainActivity.java", "FPS: " + fps_in);
 		tv_fps_in.setText("FPS:"+fps_in);
 		fps = fps_in;
-		if (fps_in == 0) {
-			video_feed_view.setImageResource(R.drawable.wooden_bg);
-		}
+//		if (fps_in == 0) {
+//			video_feed_view.setImageResource(R.drawable.wooden_bg);
+//		}
 	}
 }
