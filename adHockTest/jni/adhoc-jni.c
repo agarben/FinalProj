@@ -549,12 +549,18 @@ int AddToNetworkMap(char* node_ip, NetworkMap * Network_Head){
  */
 int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* member_to_remove, int network_is_members_list){
 
-//	static int depth_in_recursion =0;
-//	if (depth_in_recursion++ == 0) {
-//		pause_daemon = TRUE;  					// TODO: We can do this only for allMembersInNetworkMap
-//		while (daemon_paused == FALSE) {
-//		}
-//	}
+	static int depth_in_recursion = 0; 			// always start from 0, must make sure every time we finish removing a member it goes back to zero
+	if (depth_in_recursion == 0) {				// if we're at the 0 lvl, it means that we're gonna start deleting a node, so we pause the daemon
+		pause_daemon = TRUE;  					// TODO: We can do this only for allMembersInNetworkMap
+		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Pausing Daemon");
+		while (daemon_paused != TRUE) {
+			// wait for the daemon to pause before starting the member removal
+		}
+		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Daemon paused");
+	}
+	depth_in_recursion++;
+
+
 	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Received a request to remove node: [%s]", member_to_remove->node_ip);
 
 	// 3. remove ip from network and free memory
@@ -612,19 +618,7 @@ int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* m
 	network_to_remove_from->num_of_nodes -= 1;
 	__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Removing member [%s] successfully from the network of [%s]. New amount of nodes [%d]", member_to_remove->node_ip,network_to_remove_from->node_base_ip,network_to_remove_from->num_of_nodes);
 
-//	if (network_is_members_list == FALSE) {
-//		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Entered first condition");
-//		temp_member = GetNode(member_to_remove->node_ip, AllNetworkMembersList, 1);
-//		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Entered second condition");
-//		if (temp_member != NULL){;
-//		__android_log_write(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Entered third condition");
-//		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): AllNetworkMembersList->[%s] instance_count=[%d] ",temp_member->node_ip, temp_member->instance_count);
-//			if (--temp_member->instance_count == 0) { // One less instance of node_ip exists in the network now.
-//				__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Going to remove [%s] from AllNetworkMembersList",temp_member->node_ip);
-//				RemoveFromNetworkMap(AllNetworkMembersList,temp_member,TRUE);
-//			}
-//		}
-//	}
+
 
 	if (network_is_members_list == FALSE) {
 		temp_member = GetNode(member_to_remove->node_ip, MyNetworkMap, 100); // TODO: Should be network depth
@@ -641,9 +635,16 @@ int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* m
 	free(member_to_remove->node_ip);
 	free(member_to_remove->SubNetwork);
 	free(member_to_remove);
-//	if (--depth_in_recursion == 0) {
-//		pause_daemon = FALSE;
-//	}
+
+	depth_in_recursion--; // going to go up a lvl
+	if (depth_in_recursion == 0) {
+		pause_daemon = FALSE;
+		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Releasing Daemon");
+		while (daemon_paused == TRUE) {
+			// wait for daemon to un-pause
+		}
+		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Daemon released.");
+	}
 	return 0;
 
 }
@@ -1201,7 +1202,7 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 	//// debug and such, delete variables and all logic related
 	int _is_broadcast = FALSE;								//
 	int entered_nw_coding = FALSE;							//
-	int entered_sect_1 = FALSE;								//
+	int daemon_was_paused = FALSE;								//
 	//////////////////////////////////////////////////////////
 
 	int my_turn = FALSE;
@@ -1210,20 +1211,26 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 	char send_buf[BUFLEN]; // TODO: Consider changing to BUFLEN+HEADER_LEN
 	while (1) { // TODO: Check this double while(1) loop
 
-//		while (pause_daemon) { // TODO: Add a daemon paused/unpaused print
-//			daemon_paused = TRUE;
-//		}
-//		daemon_paused = FALSE;
 
 		Member = AllNetworkMembersList->FirstMember;
 
 		while (Member != NULL) {
 
-			entered_sect_1 = FALSE; // todo: delete
+
+			while (pause_daemon == TRUE) { // TODO: Add a daemon paused/unpaused print
+				daemon_paused = TRUE;
+				daemon_was_paused = TRUE;
+			}
+			if (daemon_was_paused == TRUE) { // Only if pause occured, meaning a member was deleted, reet mary-go-round
+				daemon_paused = FALSE;
+				daemon_was_paused = FALSE;
+				Member = AllNetworkMembersList->FirstMember; // maybe the member that was deleted is the one we were just handling, restart the marry-go-round at first member and go back to beginning of the while
+				continue;
+			}
+
 			if (Member->MemberBuffer[Member->current_index_to_send].is_valid == TRUE && Member->MemberBuffer[Member->current_index_to_send].was_sent == FALSE) 	{ // TODO: This is a temporary condition for NW_coding, change it
 
 				// sect1
-				entered_sect_1 = TRUE; // todo:delete
 				entered_nw_coding = FALSE; // TODO: Delete
 				if (network_coding_on && Member->MemberBuffer[Member->current_index_to_send].is_source == FALSE) {
 					entered_nw_coding = TRUE;
