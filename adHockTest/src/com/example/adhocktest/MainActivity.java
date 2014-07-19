@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Random;
 
 import android.net.wifi.WifiManager;
 import android.os.Build;
@@ -77,6 +78,8 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 	
 	private Handler handler = new Handler(); // TODO: dont forget to delete
 	
+	private int tmp_count = 0;
+	private int tmp_rnd_int =0;
 
 	Date Date_start = new Date();
 	Date Date_end = new Date();
@@ -256,7 +259,8 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		                	 if (!Pause){
 		                  	  if ( camera != null )
 		                      {
-		                    	  if (DataIn != null && fps != 0){
+		                    	 // if (DataIn != null && fps != 0){
+		                  		  if (DataIn != null){
 		                    		//load incoming image
 									Bitmap myBitmap =  BitmapFactory.decodeByteArray(DataIn, 0, DataIn.length);
 									if (myBitmap != null){
@@ -285,7 +289,16 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		                        	  if (start){
 		                        				String jdata_str = bytesToStringUTFCustom(jdata);
 		                        				if (target_ip != "192.168.2.255") {
-			                        				 SenderUDP senderUDP = new SenderUDP(target_ip, jdata_str);   
+			                        				 SenderUDP senderUDP = new SenderUDP(target_ip, jdata_str);  
+		                        					 //tmp_count++;
+		                        					 //tmp_rnd_int = 0 + (int)(Math.random() * ((1000 - 0) + 1));
+		                        					 //Log.i("MainActivity.java", "Sending string : " + tmp_rnd_int + " dbg " + my_ip + " " + tmp_count);
+//			                        				 SenderUDP senderUDP = new SenderUDP(target_ip, tmp_rnd_int + " dbg " + my_ip + " " + tmp_count);   
+//			                        				 if (my_ip.equals("192.168.2.33"))
+//			                        					 senderUDP.setMessage("galgalgalgalgalgalgalgal");
+//			                        				 if (my_ip.equals("192.168.2.207"))
+//			                        					 senderUDP.setMessage("benbenbenbengalben");
+		                        		
 						                				try {
 						                					senderUDP.sendMsg();
 						                					Thread.sleep(2); // TODO: Check the sleep value value

@@ -32,7 +32,7 @@ public class SenderUDP {
 	{
 		try {	
 			// TODO: check data length		
-			Log.i("SenderUDP.java","NDK: sending to IPAddress "+ip);
+			Log.i("SenderUDP.java","NDK: sending to IPAddress ");
 			SendUdpJNI(ip,msg,1); // Always broadcast
 		} catch (StackOverflowError e) {
 			Log.i("SenderUDP.java","CAUGHT 00");
