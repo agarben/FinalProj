@@ -15,7 +15,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <string.h>
 #include <jni.h>
 #include <android/log.h>
 #include <errno.h>
@@ -33,13 +32,15 @@
 #define STR_NOT_EQUAL 1
 #define HEADER_LEN 200 // TODO: May need to be increased
 #define BUFLEN 64000
-#define MAX_MSGS_IN_BUF 2000
+#define MAX_MSGS_IN_BUF 2500
 
 #define DATA_PORT 1234
 #define MNG_PORT 8888
 
 #define DONTCARE_INT 0
 #define DONTCARE_CHAR "dontcare"
+
+#define CYCLES_TO_WAIT_FOR_NC 2
 
 
 /////
@@ -78,7 +79,8 @@ typedef struct MemberInNetwork {
 	int CountdownTimer;
 	struct Buffer MemberBuffer[MAX_MSGS_IN_BUF];
 	int current_index_to_send;
-	//need to add more parameters such as last received etc
+	int most_recent_rec_index;
+	//need to add more parameters
 } MemberInNetwork;
 
 ////NETWORK MAP
@@ -431,6 +433,7 @@ Java_com_example_adhocktest_Routing_InitializeMap(JNIEnv* env1,
 	strcpy(MyMemberInstance->node_ip,MyNetworkMap->node_base_ip);
 	int i;
 	MyMemberInstance->current_index_to_send = 0;
+	MyMemberInstance->most_recent_rec_index = 0;
 	for (i=0; i<MAX_MSGS_IN_BUF; i++) {
 		MyMemberInstance->MemberBuffer[i].is_valid = FALSE;
 	}
@@ -518,6 +521,7 @@ int AddToNetworkMap(char* node_ip, NetworkMap * Network_Head){
 		//buffers
 		///////
 		temp->current_index_to_send = 0;
+		temp->most_recent_rec_index = 0;
 		for (i=0; i<MAX_MSGS_IN_BUF; i++) {
 			temp->MemberBuffer[i].is_valid = FALSE;
 		}
@@ -757,10 +761,10 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz, j
 
 	if (is_mng == FALSE) {
 		retVal = recvfrom(sock_fd_rx, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen);
-		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): (DATA) Raw string received: <%s>",buf);
+		//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): (DATA) Raw string received: <%s>",buf);
 	} else {
 		retVal = recvfrom(sock_mng_rx, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen);
-		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): (MNG)  Raw string received: <%s>",buf);
+		//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): (MNG)  Raw string received: <%s>",buf);
 	}
 	if (retVal==-1) {
 		__android_log_print(ANDROID_LOG_INFO, "Error",  "RecvUdpJNI() Failed to recvfrom() retVal=%d",retVal);
@@ -789,13 +793,13 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz, j
 			__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): Message decryption should occur here but its not implemented");
 		}
 
-		__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA i am the target");
+		//__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA i am the target");
 		target_list = ExtractTargetFromHeader(buf);
-		__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA 1");
+		//__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA 1");
 		next_hop_list = ExtractNextHopFromHeader(buf);
-		__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA 2");
+		//__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA 2");
 		if (target_list==NULL || next_hop_list == NULL){
-			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI():HOPA  Bad message, ignoring [%s]",buf);
+			//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI():HOPA  Bad message, ignoring [%s]",buf);
 			is_ignore_msg = TRUE;
 		} else {
 			if (ImInTheIpList(target_list) == TRUE) {        		// i am one of the targets of the msg
@@ -803,7 +807,7 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz, j
 
 
 
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA I am the target of this message");
+				//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA I am the target of this message");
 
 
 
@@ -811,21 +815,21 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz, j
 			} else if (ImInTheIpList(next_hop_list) == TRUE){ 		// i am on of the next hops
 				is_forward_msg = TRUE;
 
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA I am the next hop of this message. forwarding [%s]",buf);
+				//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA I am the next hop of this message. forwarding [%s]",buf);
 				strstrptr = strstr(buf,";");
 				if (strstrptr == NULL) {
-					__android_log_print(ANDROID_LOG_INFO, "Error",  "RecvUdpJNI(): HOPA Did not find ';', Ignoring message.");
+					//__android_log_print(ANDROID_LOG_INFO, "Error",  "RecvUdpJNI(): HOPA Did not find ';', Ignoring message.");
 					FreeIpList(target_list);
 					FreeIpList(next_hop_list);
 				}
 
 				// TODO: Decode, and send only the message that is new
 
-				__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA 3");
+				//__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA 3");
 				sources = GetSourceFromString(buf);
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA Extracted sources: index:len [%s]-[%d]:[%d]", sources->ip, sources->index, sources->msg_len);
+				//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA Extracted sources: index:len [%s]-[%d]:[%d]", sources->ip, sources->index, sources->msg_len);
 				SendUdpJNI(target_list->ip,strstrptr+1, TRUE, FALSE, sources->msg_len, sources->ip, sources->index);
-				__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA 4");
+				//__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA 4");
 				// TODO: Make more efficient
 				// TODO: When we add XOR we have to use the message length integer instead of strlen()
 				// TODO: When network coding this will have to happen after decode assuming 4+ line
@@ -835,7 +839,7 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz, j
 			} else { 	 						// I am neither the next hop or target
 
 				if (is_mng == FALSE) {
-					__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA is_ignore_msg = TRUE");
+					//__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA is_ignore_msg = TRUE");
 				}
 				is_ignore_msg = TRUE;
 			}
@@ -844,37 +848,37 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz, j
 		// Free mem
 		//////
 		if (is_mng == FALSE) {
-		__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA 4");
+		//__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA 4");
 		}
 		FreeIpList(target_list);
 		if (is_mng == FALSE) {
-		__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA 5");
+		//__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA 5");
 		}
 		FreeIpList(next_hop_list);
 		if (is_mng == FALSE) {
-		__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA 6");
+		//__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): HOPA 6");
 		}
 	}
 
 	if (is_mng == FALSE) {
-		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA raw_msg [%s]",buf);
+		//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA raw_msg [%s]",buf);
 	}
 	//if received successfully , close socket
 	if (is_ignore_msg == TRUE) {
 		if (is_mng == FALSE) {
-			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA in is_ignore_msg raw_msg [%s]",buf);
+			//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA in is_ignore_msg raw_msg [%s]",buf);
 		}
 		return (*env1)->NewStringUTF(env1, "ignore"); // return ignore
 	} else if (is_forward_msg == TRUE) {
 		if (is_mng == FALSE) {
-			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA in is_forward_msg raw_msg [%s]",buf);
+			//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA in is_forward_msg raw_msg [%s]",buf);
 		}
 		return (*env1)->NewStringUTF(env1, "ignore"); // TODO: Make this return some forward feedback
 	} else {
 		strstrptr = strstr(buf,"}~"); 	// first try to check if this is an image
 		if (strstrptr == NULL) {		// if its not image nor text just return something
 			if (is_mng == FALSE) {
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA gonna return 1 [%s]",buf);
+				//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA gonna return 1 [%s]",buf);
 			}
 			return (*env1)->NewStringUTF(env1, buf);
 		} else {
@@ -882,21 +886,21 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz, j
 
 			if (network_coding_on == TRUE) {
 
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA TEST BEFORE GETSOURCEFROMSTRING");
+				//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA TEST BEFORE GETSOURCEFROMSTRING");
 				sources = GetSourceFromString(buf);
 				if (sources != NULL) {
 					if (sources->next_source != NULL) {
 						if (is_mng == FALSE) {
-							__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA gonna return 2 [%s]",strstrptr);
+							//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA gonna return 2 [%s]",strstrptr);
 						}
-						__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Xor HOPA ~1");
+						//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Xor HOPA ~1");
 						strcpy(decoded_msg_to_return,"~");
-						__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Xor HOPA ~2");
+						//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Xor HOPA ~2");
 						strcat(decoded_msg_to_return,Decode(buf, sources));
-						__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Xor HOPA ~3");
+						//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Xor HOPA ~3");
 
 						if (is_mng == FALSE) {
-							__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Xor HOPA gonna return 3 [%s]",decoded_msg_to_return);
+							//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Xor HOPA gonna return 3 [%s]",decoded_msg_to_return);
 						}
 						return (*env1)->NewStringUTF(env1, decoded_msg_to_return);
 						//return Decode(buf, Max(sources->msg_len,sources->next_source->msg_len), sources); // Only if there are really 2 sources and decode is required
@@ -904,13 +908,13 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz, j
 				}
 
 				if (is_mng == FALSE) {
-					__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA gonna return 3  [%s]",strstrptr);
+					//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA gonna return 3  [%s]",strstrptr);
 				}
 				return (*env1)->NewStringUTF(env1, strstrptr+1); // even when network coding is ON sometimes we dont need to decode
 
 
 			} else {
-				__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA gonna return 4 [%s]",strstrptr);
+				//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): HOPA gonna return 4 [%s]",strstrptr);
 				return (*env1)->NewStringUTF(env1, strstrptr+1); // return image or text leaving the ~ or ! char respectively
 			}
 
@@ -1057,20 +1061,26 @@ void AddMsgToBuffer(MemberInNetwork* Member, const char* msg,int msg_indx,int ms
 	strcpy(Member->MemberBuffer[msg_indx].msg, msg);
 	strcpy(Member->MemberBuffer[msg_indx].target_ip, target_ip);
 
-
+	if ((msg_indx > Member->most_recent_rec_index && (msg_indx - Member->most_recent_rec_index < (MAX_MSGS_IN_BUF/4))) ||
+		(msg_indx < Member->most_recent_rec_index && (Member->most_recent_rec_index - msg_indx > (MAX_MSGS_IN_BUF/4)))) {
+		__android_log_print(ANDROID_LOG_INFO, "Buffers","Updating most recent rec index of member : [%s]. Old : [%d] New : [%d].",Member->node_ip,Member->most_recent_rec_index,msg_indx);	// TODO : delete
+		Member->most_recent_rec_index = msg_indx;
+	}
 	Member->MemberBuffer[msg_indx].is_valid = TRUE;
+
 
 	/////////////// END OF FUNCTION - ONLY LOGS FROM NOW ///////////////////
 
-	int i=0;
-	//for (i=0; i<1; i++) {
+//	int i=0;
+//	for (i=0; i<1; i++) {
 //		if (Member->MemberBuffer[i].is_valid == TRUE && Member->MemberBuffer[i].was_sent == FALSE) {
-	while (i<MAX_MSGS_IN_BUF && Member->MemberBuffer[i].is_valid == TRUE) {
-
+//	while (i<MAX_MSGS_IN_BUF && Member->MemberBuffer[i].is_valid == TRUE) {
+//
 //			__android_log_print(ANDROID_LOG_INFO, "Buffers","%d. msg=[%s]", i, Member->MemberBuffer[i].msg);
-		__android_log_print(ANDROID_LOG_INFO, "Buffers","Index-%d.	member_ip=[%s]", i, Member->node_ip);
-		i++;
-	}
+//		__android_log_print(ANDROID_LOG_INFO, "Buffers","Index-%d.	member_ip=[%s]", i, Member->node_ip);
+//		i++;
+//	}
+	__android_log_print(ANDROID_LOG_INFO, "Buffers","End of AddMsgToBuffer");
 
 }
 int IsHelloMsg(char* msg) {
@@ -1231,6 +1241,8 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 	MemberInNetwork* ReadyMember1 = NULL;
 	MemberInNetwork* ReadyMember2 = NULL;
 
+	int release_countdown = CYCLES_TO_WAIT_FOR_NC;
+
 
 	int sent_msgs = 0 ; // TODO : delete, only for debug network coding
 
@@ -1273,7 +1285,7 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 
 				// sect1
 				entered_nw_coding = FALSE; // TODO: Delete
-				if (network_coding_on && Member->MemberBuffer[Member->current_index_to_send].is_source == FALSE) {
+				if (network_coding_on && Member->MemberBuffer[Member->current_index_to_send].is_source == FALSE && release_countdown>0) {
 					entered_nw_coding = TRUE;
 
 					if (ReadyMember1 == NULL) {
@@ -1282,38 +1294,52 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 						if (strcmp(Member->node_ip,ReadyMember1->node_ip)!=0) { // Only if we found another member with a message to send who is not identical to the previous one
 							ReadyMember2 = Member;
 
-							__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Going to send [%s-%d] source?[%d] XOR [%s-%d] source?[%d]",
+							__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Going to send [%s-%d] source?[%d] XOR [%s-%d] source?[%d] release countdown [%d]",
 									ReadyMember1->node_ip,
 									ReadyMember1->current_index_to_send,
 									ReadyMember1->MemberBuffer[ReadyMember1->current_index_to_send].is_source,
 									ReadyMember2->node_ip,
 									ReadyMember2->current_index_to_send,
-									ReadyMember2->MemberBuffer[ReadyMember2->current_index_to_send].is_source);
+									ReadyMember2->MemberBuffer[ReadyMember2->current_index_to_send].is_source,
+									release_countdown);
 							BuildHeader(send_buf, ReadyMember1, ReadyMember2);
 							ready_to_send_prev_state = ready_to_send;
 							ready_to_send = TRUE;
+						} else {
+							// in case we are back to the original ReadyMember1 we know no partner is valid for network coding, decrease timeout
+							release_countdown--;
 						}
 					}
 				} else {
-					BuildHeader(send_buf, Member, Member); // TODO: Second member will not be used, in the future it will be for network coding second msg
+					__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Release countdown : [%d] , Member : [%s]", release_countdown , Member->node_ip);
+					if (release_countdown > 0){
+						BuildHeader(send_buf, Member, Member); // TODO: Second member will not be used, in the future it will be for network coding second msg
+						__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Going to send member [%s-%d] source?[%d] ",
+						Member->node_ip,
+						Member->current_index_to_send,
+						Member->MemberBuffer[Member->current_index_to_send].is_source);
+					} else{
+						BuildHeader(send_buf, ReadyMember1, ReadyMember1); // TODO: Second member will not be used, in the future it will be for network coding second msg
+						__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Going to send ReadyMember1 [%s-%d] source?[%d]",
+						ReadyMember1->node_ip,
+						ReadyMember1->current_index_to_send,
+						ReadyMember1->MemberBuffer[ReadyMember1->current_index_to_send].is_source);
+					}
 					ready_to_send_prev_state = ready_to_send;
 					ready_to_send = TRUE;
 
 					entered_nw_coding = FALSE;
+
 				}
 
 
 
 				if (ready_to_send) {
 
-//					if (strcmp(MyNetworkMap->node_base_ip,"192.168.2.22") == 0)
-//					{
-//						if (sent_msgs == 2)
-//						{
-//							__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): EXIT AFTER 2 MSGS"); // TODO: Delete
-//							exit(1);
-//						}
-//					}
+
+					release_countdown = CYCLES_TO_WAIT_FOR_NC;
+
+
 
 					sent_msgs++; //TODO : delete after network coding works
 
@@ -1324,18 +1350,6 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 					sources = GetSourceFromString(send_buf);
 
 
-					///////////////////////////////////////////////////////////////////////////////////////////////////////////////////// // TODO: Delete
-					__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): ready to send"); // TODO: Delete
-					__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): send_buf=[%s]",send_buf);
-
-					if (sources != NULL) {
-						__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): IpList_1=[%s]",sources->ip);
-						if (sources->next_source != NULL) {
-							__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): IpList_2=[%s]",sources->next_source->ip);
-
-						}
-					}
-					/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 					if (NeedToBroadcast(send_buf) == FALSE) {
 						retval = sendto(sock_uni_tx, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr_uni_tx, sizeof(servaddr_uni_tx));
 					} else {
@@ -1621,7 +1635,7 @@ char* Decode(char* encoded_msg, IpList* Sources) {
 		other_msg_len = Sources->msg_len;
 	} else {
 		temp_mem = GetNode(Sources->next_source->ip,AllNetworkMembersList,1);
-		if (temp_mem==NULL){
+		if (temp_mem==NULL) {
 			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "Decode(): Source2 [%s] is not in allmemberlist", Sources->next_source->ip);
 			return NULL;
 		} else if (temp_mem->MemberBuffer[Sources->next_source->index].is_valid==TRUE){
@@ -1661,40 +1675,29 @@ char* XorMessage(char* msg_1, char* msg_2,int len_1,int len_2, char* debug_messa
 	max = len_1 > len_2 ? len_1 : len_2;
 	min = len_1 > len_2 ? len_2 : len_1;
 
-	__android_log_print(ANDROID_LOG_INFO, "God",  "XorMessage(): Entered function for %s",debug_message);
+	//__android_log_print(ANDROID_LOG_INFO, "God",  "XorMessage(): Entered function for %s",debug_message);
 
 	xor_result = (char*)malloc(sizeof(char)*(max + 1));
 	CheckCharMalloc(xor_result, "XorMessage", "xor_result");
 //	printf("msg_1 strlen = %d , msg_2 strlen = %d ", len_1, len_2);
 
 
-	if (msg_1 != NULL) {
-		__android_log_print(ANDROID_LOG_INFO, "God",  "XorMessage(): msg1=[%s]",msg_1);
-	} else {
-		__android_log_print(ANDROID_LOG_INFO, "God",  "XorMessage(): msg1=[NULL]");
-	}
-
-	if (msg_2 != NULL) {
-		__android_log_print(ANDROID_LOG_INFO, "God",  "XorMessage(): msg2=[%s]",msg_2);
-	} else {
-		__android_log_print(ANDROID_LOG_INFO, "God",  "XorMessage(): msg2=[NULL]");
-	}
 	while (i < min){
 		xor_result[i] = msg_1[i] ^ msg_2[i];
-		__android_log_print(ANDROID_LOG_INFO, "God",  "XorMessage(): msg_1^msg_2 i = [%d] =>  [%x]^[%x]=[%x]    [%c]^[%c]=[%c]",i,msg_1[i] , msg_2[i],xor_result[i],msg_1[i] , msg_2[i],xor_result[i]);
+		//__android_log_print(ANDROID_LOG_INFO, "God",  "XorMessage(): msg_1^msg_2 i = [%d] =>  [%x]^[%x]=[%x]    [%c]^[%c]=[%c]",i,msg_1[i] , msg_2[i],xor_result[i],msg_1[i] , msg_2[i],xor_result[i]);
 		i++;
 	}
 
 	if (len_1>len_2){
 		while (i < max){
 			xor_result[i] = msg_1[i] ^ 0x00;
-			__android_log_print(ANDROID_LOG_INFO, "God",  "XorMessage(): msg_1^0x00 i = [%d] =>  [%x]^[0x00]=[%x]    [%c]^[NULL]=[%c]",i,msg_1[i],xor_result[i],msg_1[i],xor_result[i]);
+			//__android_log_print(ANDROID_LOG_INFO, "God",  "XorMessage(): msg_1^0x00 i = [%d] =>  [%x]^[0x00]=[%x]    [%c]^[NULL]=[%c]",i,msg_1[i],xor_result[i],msg_1[i],xor_result[i]);
 			i++;
 		}
 	} else {
 		while (i < max){
 			xor_result[i] = msg_2[i] ^ 0x00;
-			__android_log_print(ANDROID_LOG_INFO, "God",  "XorMessage(): msg_2^0x00 i = [%d] => [0x00]^[%x]=[%x]    [NULL]^[%c]=[%c]",i,msg_2[i],xor_result[i],msg_2[i],xor_result[i]);
+			//__android_log_print(ANDROID_LOG_INFO, "God",  "XorMessage(): msg_2^0x00 i = [%d] => [0x00]^[%x]=[%x]    [NULL]^[%c]=[%c]",i,msg_2[i],xor_result[i],msg_2[i],xor_result[i]);
 			i++;
 		}
 	}
@@ -1714,7 +1717,7 @@ char* XorMessage(char* msg_1, char* msg_2,int len_1,int len_2, char* debug_messa
 	}
 
 
-	__android_log_print(ANDROID_LOG_INFO, "God",  "XorMessage(): Diff:%d Same:%d Len1:%d Len2:%d Result: [%s]", differences, same, strlen(xor_result),strlen(msg_2), xor_result);
+	//__android_log_print(ANDROID_LOG_INFO, "God",  "XorMessage(): Diff:%d Same:%d Len1:%d Len2:%d Result: [%s]", differences, same, strlen(xor_result),strlen(msg_2), xor_result);
 	return xor_result;
 }
 
