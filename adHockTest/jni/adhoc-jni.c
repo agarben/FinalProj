@@ -135,7 +135,8 @@ IpList* GetSourceFromString(char* msg);
 void BuildHeader(char* send_buffer, MemberInNetwork* BufferOwnerMember1, MemberInNetwork* BufferOwner2);
 void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1, jobject thiz);
 int NeedToBroadcast(char* message);
-void FlushBuffer(char * ip_of_member_to_flush);
+void FlushBuffer(char * ip_of_member_to_flush); // Flush the buffer of ip_of_member_to_flush
+void FlushBuffersSendingToMember(char * ip_to_remove); 		// Flush buffers that would try to send msg's to ip_to_remove
 int Max(int num1, int num2);
 void CheckCharMalloc(char* char_to_check, char* function_name,  char* var_name);
 void FreeIpList(IpList* list_to_free);
@@ -554,8 +555,11 @@ int AddToNetworkMap(char* node_ip, NetworkMap * Network_Head){
 int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* member_to_remove, int network_is_members_list){
 
 	static int depth_in_recursion = 0; 			// always start from 0, must make sure every time we finish removing a member it goes back to zero
+	char ip_to_remove[20];
+
 	if (depth_in_recursion == 0) {				// if we're at the 0 lvl, it means that we're gonna start deleting a node, so we pause the daemon
 		pause_daemon = TRUE;  					// TODO: We can do this only for allMembersInNetworkMap
+		strcpy(ip_to_remove,member_to_remove->node_ip); // will be used only at depth0 (look at the end of this function)
 		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Pausing Daemon");
 		while (daemon_paused != TRUE) {
 			// wait for the daemon to pause before starting the member removal
@@ -642,6 +646,7 @@ int RemoveFromNetworkMap(NetworkMap * network_to_remove_from, MemberInNetwork* m
 
 	depth_in_recursion--; // going to go up a lvl
 	if (depth_in_recursion == 0) {
+		FlushBuffersSendingToMember(ip_to_remove);
 		pause_daemon = FALSE;
 		__android_log_print(ANDROID_LOG_INFO, "NetworkMap","RemoveFromNetworkMap(): Releasing Daemon");
 		while (daemon_paused == TRUE) {
@@ -718,6 +723,7 @@ void SendUdpJNI(const char* _target_ip, const char* message, int is_broadcast, i
 		strcat(hello_message_string,")");
 
 		retval = sendto(sock_mng_tx, hello_message_string, strlen(hello_message_string), 0, (struct sockaddr*)&servaddr_mng_tx, sizeof(servaddr_mng_tx));
+
 		if ( retval < 0) {
 //			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "SendUdpJNI(): sendto failed with %d. message was [%s]", errno,hello_message_string); // TODO: Uncomment
 		} else {
@@ -764,7 +770,7 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz, j
 		//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): (DATA) Raw string received: <%s>",buf);
 	} else {
 		retVal = recvfrom(sock_mng_rx, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &slen);
-		//__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): (MNG)  Raw string received: <%s>",buf);
+		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): (MNG)  Raw string received: <%s>",buf);
 	}
 	if (retVal==-1) {
 		__android_log_print(ANDROID_LOG_INFO, "Error",  "RecvUdpJNI() Failed to recvfrom() retVal=%d",retVal);
@@ -788,6 +794,9 @@ Java_com_example_adhocktest_ReceiverUDP_RecvUdpJNI(JNIEnv* env1, jobject thiz, j
 		} else {
 			ProcessHelloMsg(strpbrk(buf,":")+1,strlen(strpbrk(buf,":")+1),MyNetworkMap);                        // WARNING This line will crash if hello msg doesnt contain ":"
 		}
+	} else if (GetNode(inet_ntoa(cli_addr.sin_addr), AllNetworkMembersList, 1) == NULL) {
+		is_ignore_msg = TRUE;
+		__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RecvUdpJNI(): Ignoring msg from non-existing member ip=[%s]",inet_ntoa(cli_addr.sin_addr));
 	} else {
 		if (network_coding_on == TRUE) {
 			__android_log_print(ANDROID_LOG_INFO, "WARNING",  "RecvUdpJNI(): Message decryption should occur here but its not implemented");
@@ -987,7 +996,7 @@ Java_com_example_adhocktest_Routing_RefreshNetworkMapJNI(JNIEnv* env1, jobject t
 	char* network_list_str = (char*)malloc(sizeof(char)*HELLO_MSG_LEN);
 	network_list_str[0] = '\0';
 	GenerateHelloMsg(network_list_str,AllNetworkMembersList);
-	__android_log_print(ANDROID_LOG_INFO, "RefreshNetworkMapJNI","AllMembersList is currently [%s]",network_list_str);
+	__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c","RefreshNetworkMapJNI(): AllMembersList is currently [%s]",network_list_str);
 
 	return (*env1)->NewStringUTF(env1, network_list_str);
 }
@@ -1000,7 +1009,7 @@ void RefreshNetworkMap(NetworkMap* network_to_refresh) {
 		if (son_to_refresh->CountdownTimer > 0) {
 			UpdateNodeTimer(son_to_refresh, (son_to_refresh->CountdownTimer-1));
 
-			__android_log_print(ANDROID_LOG_INFO, "RefreshNetworkMap","Network [%s] member [%s] countdown=[%d]",network_to_refresh->node_base_ip,son_to_refresh->node_ip,son_to_refresh->CountdownTimer);
+			__android_log_print(ANDROID_LOG_INFO, "RefreshNetworkMap","Network [%s] member [%s] countdown=[%d]",network_to_refresh->node_base_ip,son_to_refresh->node_ip,son_to_refresh->CountdownTimer+1);
 			RefreshNetworkMap(son_to_refresh->SubNetwork);
 			son_to_refresh = son_to_refresh->NextNode;
 		} else {
@@ -1255,11 +1264,14 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 	//// debug and such, delete variables and all logic related
 	int _is_broadcast = FALSE;								//
 	int entered_nw_coding = FALSE;							//
-	int daemon_was_paused = FALSE;								//
+	int daemon_was_paused = FALSE;							//
 	//////////////////////////////////////////////////////////
 
 	int my_turn = FALSE;
 	int retval;
+
+	int temp_current_index;
+	int temp_most_recent_rec_index;
 
 	char send_buf[BUFLEN]; // TODO: Consider changing to BUFLEN+HEADER_LEN
 	while (1) { // TODO: Check this double while(1) loop
@@ -1279,6 +1291,18 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 				daemon_was_paused = FALSE;
 				Member = AllNetworkMembersList->FirstMember; // maybe the member that was deleted is the one we were just handling, restart the marry-go-round at first member and go back to beginning of the while
 				continue;
+			}
+
+			/*
+			 * Packet drop handling - If current_index_to_send is not valid or was already sent, check if latest_received_index > current_index_to_send. If this occurs current_index should
+			 *  increment to the next valid packet to send
+			 */
+
+			temp_most_recent_rec_index = Member->most_recent_rec_index;
+			while (	(Member->MemberBuffer[Member->current_index_to_send].is_valid == FALSE || Member->MemberBuffer[Member->current_index_to_send].was_sent == TRUE) &&
+				 	(Member->current_index_to_send < temp_most_recent_rec_index || Member->current_index_to_send-temp_most_recent_rec_index > MAX_MSGS_IN_BUF/2)) {
+					__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Packet drop detected. Member:[%s] old_curr_indx:[%d] most_recent_rec:[%d]",Member->node_ip, Member->current_index_to_send, temp_most_recent_rec_index);
+					Member->current_index_to_send = (Member->current_index_to_send+1) % MAX_MSGS_IN_BUF;
 			}
 
 			if (Member->MemberBuffer[Member->current_index_to_send].is_valid == TRUE && Member->MemberBuffer[Member->current_index_to_send].was_sent == FALSE) 	{ // TODO: This is a temporary condition for NW_coding, change it
@@ -1313,17 +1337,18 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 				} else {
 					__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Release countdown : [%d] , Member : [%s]", release_countdown , Member->node_ip);
 					if (release_countdown > 0){
-						BuildHeader(send_buf, Member, Member); // TODO: Second member will not be used, in the future it will be for network coding second msg
 						__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Going to send member [%s-%d] source?[%d] ",
 						Member->node_ip,
 						Member->current_index_to_send,
 						Member->MemberBuffer[Member->current_index_to_send].is_source);
+						BuildHeader(send_buf, Member, Member); // TODO: Second member will not be used, in the future it will be for network coding second msg
 					} else{
-						BuildHeader(send_buf, ReadyMember1, ReadyMember1); // TODO: Second member will not be used, in the future it will be for network coding second msg
 						__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): Going to send ReadyMember1 [%s-%d] source?[%d]",
 						ReadyMember1->node_ip,
 						ReadyMember1->current_index_to_send,
 						ReadyMember1->MemberBuffer[ReadyMember1->current_index_to_send].is_source);
+						BuildHeader(send_buf, ReadyMember1, ReadyMember1); // TODO: Second member will not be used, in the future it will be for network coding second msg
+
 					}
 					ready_to_send_prev_state = ready_to_send;
 					ready_to_send = TRUE;
@@ -1337,29 +1362,26 @@ void Java_com_example_adhocktest_BufferHandler_RunSendingDaemonJNI(JNIEnv* env1,
 				if (ready_to_send) {
 
 
+
 					release_countdown = CYCLES_TO_WAIT_FOR_NC;
+					if (strcmp(send_buf,"DROP")!=0){
+						//// sending block
+						/////////////////////////////////////
+
+						sources = GetSourceFromString(send_buf);
 
 
-
-					sent_msgs++; //TODO : delete after network coding works
-
-
-					//// sending block
-					/////////////////////////////////////
-
-					sources = GetSourceFromString(send_buf);
-
-
-					if (NeedToBroadcast(send_buf) == FALSE) {
-						retval = sendto(sock_uni_tx, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr_uni_tx, sizeof(servaddr_uni_tx));
-					} else {
-						__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): send_buf=[%s]",send_buf);
-						retval = sendto(sock_broad_tx, send_buf, HEADER_LEN + Max(sources->msg_len,sources->next_source->msg_len), 0, (struct sockaddr*)&servaddr_broad_tx, sizeof(servaddr_broad_tx));
-					}
-					if ( retval < 0) {
-						__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): sendto failed with %d. message was [%20s]", errno,send_buf);
-					} else {
-						__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): sendto() Success (retval=%d member=[%s] messge=[%20s] size=%d ", retval, Member->node_ip, send_buf,strlen(send_buf));
+						if (NeedToBroadcast(send_buf) == FALSE) {
+							retval = sendto(sock_uni_tx, send_buf, strlen(send_buf)+1, 0, (struct sockaddr*)&servaddr_uni_tx, sizeof(servaddr_uni_tx));
+						} else {
+							__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): send_buf=[%s]",send_buf);
+							retval = sendto(sock_broad_tx, send_buf, HEADER_LEN + Max(sources->msg_len,sources->next_source->msg_len), 0, (struct sockaddr*)&servaddr_broad_tx, sizeof(servaddr_broad_tx));
+						}
+						if ( retval < 0) {
+							__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): sendto failed with %d. message was [%20s]", errno,send_buf);
+						} else {
+							__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "RunSendingDaemonJNI(): sendto() Success (retval=%d member=[%s] messge=[%20s] size=%d ", retval, Member->node_ip, send_buf,strlen(send_buf));
+						}
 					}
 
 					///// prepare for next iteration
@@ -1450,23 +1472,29 @@ void BuildHeader(char* send_buf, MemberInNetwork* BufferOwnerMember1, MemberInNe
 	target_member_ptr_1 = GetNode(BufferOwnerMember1->MemberBuffer[BufferOwnerMember1->current_index_to_send].target_ip, AllNetworkMembersList, 1);
 	if (target_member_ptr_1 == NULL) {
 		__android_log_print(ANDROID_LOG_INFO, "ERROR",  "RunSendingDaemonJNI(): Could not find target_member_ptr in MyNetworkMap");
+		strcpy(send_buf,"DROP");
+		return;
 	}
 	next_hop_ptr_1 = GetNextHop(MyNetworkMap, target_member_ptr_1);
 	if (next_hop_ptr_1 == NULL) {
 		__android_log_print(ANDROID_LOG_INFO, "ERROR",  "RunSendingDaemonJNI(): Could not find next_hop_ptr in MyNetworkMap");
+		strcpy(send_buf,"DROP");
+		return;
 	}
-	next_hop_ptr_1 = GetNextHop(MyNetworkMap, target_member_ptr_1);
 
 	if (two_different_packets) {												// if there's another destination
 		target_member_ptr_2 = GetNode(BufferOwnerMember2->MemberBuffer[BufferOwnerMember2->current_index_to_send].target_ip, AllNetworkMembersList, 1);
 		if (target_member_ptr_2 == NULL) {
-			__android_log_print(ANDROID_LOG_INFO, "ERROR",  "RunSendingDaemonJNI(): Could not find target_member_ptr in MyNetworkMap");
+			__android_log_print(ANDROID_LOG_INFO, "ERROR",  "RunSendingDaemonJNI(): Could not find target_member_ptr2 in MyNetworkMap");
+			strcpy(send_buf,"DROP");
+			return;
 		}
 		next_hop_ptr_2 = GetNextHop(MyNetworkMap, target_member_ptr_2);
 		if (next_hop_ptr_2 == NULL) {
-			__android_log_print(ANDROID_LOG_INFO, "ERROR",  "RunSendingDaemonJNI(): Could not find next_hop_ptr in MyNetworkMap");
+			__android_log_print(ANDROID_LOG_INFO, "ERROR",  "RunSendingDaemonJNI(): Could not find next_hop_ptr2 in MyNetworkMap");
+			strcpy(send_buf,"DROP");
+			return;
 		}
-		next_hop_ptr_2 = GetNextHop(MyNetworkMap, target_member_ptr_2);
 	}
 
 
@@ -1729,6 +1757,20 @@ void FlushBuffer(char * ip_of_member_to_flush) {
 			member_to_flush->MemberBuffer[i].is_valid = FALSE;
 		}
 	}
+}
+
+void FlushBuffersSendingToMember(char * ip_to_remove) {
+	MemberInNetwork * temp_member_in_network;
+
+	temp_member_in_network = AllNetworkMembersList->FirstMember;
+	while (temp_member_in_network != NULL) {
+		if (strcmp(ip_to_remove, temp_member_in_network->MemberBuffer[0].target_ip) == 0) {
+			__android_log_print(ANDROID_LOG_INFO, "adhoc-jni.c",  "FlushBuffersSendingToMember(): Going to flush buffer of member [%s] who's target is [%s]",temp_member_in_network->node_ip, ip_to_remove);
+			FlushBuffer(temp_member_in_network->node_ip);
+		}
+		temp_member_in_network=temp_member_in_network->NextNode;
+	}
+
 }
 
 int Max(int num1, int num2) {

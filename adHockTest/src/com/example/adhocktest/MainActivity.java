@@ -199,6 +199,9 @@ public class MainActivity extends Activity implements OnItemSelectedListener {
 		final String final_str = str_to_rem;
 		handler.post(new Runnable(){
 			public void run() {
+				if (final_str.equals(target_ip)) {
+					StopBroadcastingVideo();
+				}
 				adapter.remove(final_str);
 				adapter.notifyDataSetChanged();
 			}
