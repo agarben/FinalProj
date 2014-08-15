@@ -1021,7 +1021,7 @@ void RefreshNetworkMap(NetworkMap* network_to_refresh) {
 		}
 	}
 }
-
+//TODO: Delete
 MemberInNetwork* GetNextHop(NetworkMap* network_to_search ,MemberInNetwork* final_destination) {
 
 	MemberInNetwork* temp_member;
